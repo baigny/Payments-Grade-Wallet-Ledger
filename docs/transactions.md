@@ -5,7 +5,8 @@ explicit SQL; no ORM or balance-changing database trigger hides the money path.
 
 ## Transaction boundary
 
-1. Start an explicit transaction at Read Committed isolation.
+1. Start an explicit transaction at Read Committed isolation and claim the
+   caller-scoped idempotency key before any business writes.
 2. Resolve system endpoints from the transfer type.
 3. Lock both account rows with the query below, in ascending ID order.
 4. Check account types, sender ownership, available funds, and integer bounds
@@ -14,7 +15,8 @@ explicit SQL; no ORM or balance-changing database trigger hides the money path.
    and insert its debit and credit.
 6. Update both cached balances while the account locks are held, then mark the
    transfer posted.
-7. Commit. Deferred constraints check the complete posting at this boundary.
+7. Save the response on the idempotency key, then commit. Deferred constraints
+   check the complete posting and key completion at this boundary.
 
 ```sql
 BEGIN;
@@ -28,6 +30,7 @@ WHERE id = ANY($1)
 ORDER BY id
 FOR UPDATE;
 
+-- Claim the idempotency key before locking accounts (see idempotency.md).
 -- Validate balances/ownership, insert transfer and both ledger lines,
 -- update the two locked balances, and set status = 'posted'.
 COMMIT;
@@ -73,10 +76,11 @@ replacing the explicit lock discipline here. No throughput comparison is claimed
 without a benchmark.
 
 Lock/statement timeouts fail and roll back the entire operation; the API returns
-a standard error rather than partially posting. Response-loss replay protection
-is milestone 3. A UUID header is required now, but repeated keys are not yet
-deduplicated. Business failures such as insufficient funds create no transfer,
-ledger, or audit rows in this milestone.
+a standard error rather than partially posting. The key and saved response share
+this transaction; a lost response can be recovered by retrying with the same key.
+Business failures such as insufficient funds create no transfer, ledger or audit
+rows, but their response is retained on the key after savepoint rollback. See
+[idempotency](idempotency.md) for the full protocol.
 
 ## Verification
 

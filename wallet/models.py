@@ -61,7 +61,12 @@ class UserResponse(BaseModel):
 
 
 class UserCreated(UserResponse):
-    token: str = Field(description="Shown once. Store securely; only its hash is persisted.")
+    token: str = Field(
+        description=(
+            "Store securely. Authentication stores a hash; the original creation response, "
+            "including this token, is retained for administrator-scoped idempotent replay."
+        )
+    )
 
 
 class WalletCreate(InputModel):

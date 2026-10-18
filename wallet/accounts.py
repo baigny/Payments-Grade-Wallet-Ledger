@@ -11,35 +11,33 @@ from wallet.models import UserCreate
 WALLET_COLUMNS = "id, user_id, name, currency, balance"
 
 
-def create_user(actor: Actor, data: UserCreate):
+def create_user(conn, actor: Actor, data: UserCreate):
     require_admin(actor)
     token = secrets.token_urlsafe(32)
     try:
-        with db.connect(autocommit=True, row_factory=dict_row) as conn, conn.transaction():
-            user = conn.execute(
-                "INSERT INTO users (name, email, phone) VALUES (%s, %s, %s) "
-                "RETURNING id, name, email, phone, kyc_status",
-                (data.name, data.email.lower(), data.phone),
-            ).fetchone()
-            conn.execute(
-                "INSERT INTO auth_tokens (user_id, token_hash) VALUES (%s, %s)",
-                (user["id"], token_hash(token)),
-            )
+        user = conn.execute(
+            "INSERT INTO users (name, email, phone) VALUES (%s, %s, %s) "
+            "RETURNING id, name, email, phone, kyc_status",
+            (data.name, data.email.lower(), data.phone),
+        ).fetchone()
+        conn.execute(
+            "INSERT INTO auth_tokens (user_id, token_hash) VALUES (%s, %s)",
+            (user["id"], token_hash(token)),
+        )
     except psycopg.errors.UniqueViolation as exc:
         raise DomainError("USER_EXISTS", "Email or phone is already registered", 409) from exc
     return {**user, "token": token}
 
 
-def create_wallet(actor: Actor, user_id: int, name: str):
+def create_wallet(conn, actor: Actor, user_id: int, name: str):
     authorize_owner(actor, user_id)
-    with db.connect(autocommit=True, row_factory=dict_row) as conn, conn.transaction():
-        if conn.execute("SELECT id FROM users WHERE id = %s", (user_id,)).fetchone() is None:
-            raise DomainError("NOT_FOUND", "User was not found", 404)
-        return conn.execute(
-            "INSERT INTO accounts (user_id, name, account_type) VALUES (%s, %s, 'wallet') "
-            f"RETURNING {WALLET_COLUMNS}",
-            (user_id, name),
-        ).fetchone()
+    if conn.execute("SELECT id FROM users WHERE id = %s", (user_id,)).fetchone() is None:
+        raise DomainError("NOT_FOUND", "User was not found", 404)
+    return conn.execute(
+        "INSERT INTO accounts (user_id, name, account_type) VALUES (%s, %s, 'wallet') "
+        f"RETURNING {WALLET_COLUMNS}",
+        (user_id, name),
+    ).fetchone()
 
 
 def list_wallets(actor: Actor, user_id: int):

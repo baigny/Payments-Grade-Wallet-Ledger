@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Wallet Ledger",
-    "description": "Bootstrap an admin and set admin_token before running. Requests create a user and wallet, then exercise implemented endpoints. Every POST uses a fresh UUID; replay protection is milestone 3. Returned tokens stay local.",
+    "description": "Bootstrap an admin and set admin_token before running. Requests create a user and wallet, then exercise payments, exact replay and changed-body rejection. Every POST needs a UUID key. Reuse a key only for an identical retry. Returned tokens stay local.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -127,7 +127,7 @@
           }
         ],
         "url": "{{base_url}}/users",
-        "description": "Admin creates a user and receives a one-time bearer token.",
+        "description": "Admin creates a user. An identical retry replays the original token response.",
         "auth": {
           "type": "bearer",
           "bearer": [
@@ -358,7 +358,7 @@
           }
         ],
         "url": "{{base_url}}/users",
-        "description": "Admin creates a user and receives a one-time bearer token.",
+        "description": "Admin creates a user. An identical retry replays the original token response.",
         "auth": {
           "type": "bearer",
           "bearer": [
@@ -529,7 +529,73 @@
           },
           {
             "key": "Idempotency-Key",
-            "value": "{{$guid}}"
+            "value": "{{peer_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers",
+        "description": "Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.\n\nAmounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need\nsource_account_id; peer needs both. System endpoints are resolved by the server.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"peer\",\n  \"source_account_id\": {{wallet_id}},\n  \"amount\": 1000,\n  \"destination_account_id\": {{recipient_wallet_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set(\"peer_key\", pm.variables.replaceIn(\"{{$guid}}\"));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"transfer_id\", pm.response.json().id);",
+              "}",
+              "pm.collectionVariables.set(\"peer_response\", pm.response.text());"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Replay peer payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{peer_key}}"
           },
           {
             "key": "Content-Type",
@@ -563,12 +629,61 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
-              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
-              "    .to.be.a(\"string\").and.not.empty);",
-              "if (pm.response.code === 201) {",
-              "    pm.collectionVariables.set(\"transfer_id\", pm.response.json().id);",
-              "}"
+              "pm.test(\"Saved status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Exact saved body\", () => pm.expect(pm.response.text()).to.eql(pm.collectionVariables.get(\"peer_response\")));",
+              "pm.test(\"Replay header\", () => pm.expect(pm.response.headers.get(\"Idempotent-Replay\")).to.eql(\"true\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject changed amount with the same key",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{peer_key}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers",
+        "description": "Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.\n\nAmounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need\nsource_account_id; peer needs both. System endpoints are resolved by the server.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"peer\",\n  \"source_account_id\": {{wallet_id}},\n  \"amount\": 2000,\n  \"destination_account_id\": {{recipient_wallet_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Conflict status\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Key reuse rejected\", () => pm.expect(pm.response.json().code).to.eql(\"IDEMPOTENCY_KEY_REUSED\"));"
             ]
           }
         }

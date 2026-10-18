@@ -3,7 +3,7 @@
 An INR wallet backend using FastAPI, PostgreSQL 16, and explicit SQL.
 
 The backend includes the accounting schema, bearer authentication, user and wallet
-creation, balance reads, paginated statements, and atomic money movement.
+creation, balance reads, paginated statements, atomic money movement and exact POST replay.
 See [Plan.md](Plan.md) for the roadmap.
 
 Milestone 1 includes database constraints for balanced postings, immutable ledger
@@ -99,13 +99,15 @@ The command prints the token once and refuses to overwrite an existing admin.
 After an automated demo, or when an additional local credential is needed, run
 `docker compose run --rm api python -m wallet.bootstrap --issue-token`. This
 requires database access and preserves existing tokens; it is not an HTTP endpoint.
-Tokens are random opaque credentials; only SHA-256 hashes are stored. User
-creation is admin-only and returns a new user's token once. Wallet reads and
+Authentication stores SHA-256 hashes of random opaque tokens. User creation is
+admin-only; its saved idempotency response retains the generated token so an
+identical admin retry can recover it. Treat the key table and backups as sensitive. Wallet reads and
 writes require ownership, with an explicit admin override. Revoked tokens fail
 authentication. The collection saves user and wallet IDs locally as requests run.
 
 The collection creates two users and wallets, funds the sender, sends a peer
-payment, withdraws funds, charges a fee, reverses the peer payment, and checks the
+payment, replays it, rejects a changed-amount retry, withdraws funds, charges a fee,
+reverses the peer payment, and checks the
 final sender balance. Swagger offers request examples for every movement type.
 To run this flow automatically, install Node.js and run:
 
@@ -118,9 +120,11 @@ admin already exists, supply its token through `WALLET_ADMIN_TOKEN`. Credentials
 are passed to Newman through a temporary environment file and are not logged.
 CI runs this same Postman flow after the Python suite and application startup.
 
-Every POST requires a UUID `Idempotency-Key`. This milestone validates the header;
-Milestone 3 will add persistence and exact response replay. Use a fresh key for
-each operation and do not rely on retries being deduplicated yet.
+Every POST requires a UUID `Idempotency-Key`, unique per authenticated caller.
+Use a new key for each operation and the same key for an identical retry. The
+original status and JSON bytes are replayed without new writes; changed requests
+return 422. See [idempotency](docs/idempotency.md) for concurrent duplicates, saved
+failures, rollback behavior and response-header semantics.
 
 The versioned [OpenAPI export](docs/api/openapi.json) and Postman collection cover
 implemented routes only. Regenerate them whenever the API changes:
@@ -154,7 +158,7 @@ Only counts and balances are saved; credentials remain in memory.
 For an explicitly requested heavier network run, use
 `python scripts/run_network_checks.py --stress` (20 rounds of 100 requests).
 CI uses the small smoke test. Network POST failures fail the run without retries;
-idempotent replay is a later milestone.
+reuse the same key when retrying a request whose response was lost.
 
 The actual two-psql-process lab, including write skew, is reproducible with:
 

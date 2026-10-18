@@ -19,10 +19,15 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Wallet Ledger",
-    version="0.2.0",
+    version="0.3.0",
     description=(
         "INR wallet backend with bearer authentication and explicit SQL. "
-        "Every POST requires a UUID Idempotency-Key. Replay protection is milestone 3."
+        "Every POST requires a UUID Idempotency-Key, scoped to the authenticated caller. "
+        "Identical retries return the saved status and JSON body with Idempotent-Replay: true. "
+        "Changing the endpoint, resource or validated body with the same key returns 422. "
+        "Concurrent duplicates wait up to five seconds; a still-busy key returns 409. "
+        "Business failures are saved; validation, authentication and infrastructure "
+        "failures are not."
     ),
     openapi_tags=[
         {"name": "Health", "description": "Application liveness and database readiness."},

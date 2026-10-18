@@ -49,7 +49,7 @@ def authorize_owner(actor: Actor, user_id: int):
 
 
 def require_write_key(key: Annotated[UUID, Header(alias="Idempotency-Key")]) -> UUID:
-    """Validate the contract; persistence and replay are implemented in milestone 3."""
+    """Require a caller-supplied UUID for every POST operation."""
     return key
 
 

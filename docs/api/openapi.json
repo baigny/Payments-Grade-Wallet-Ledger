@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Wallet Ledger",
-    "description": "INR wallet backend with bearer authentication and explicit SQL. Every POST requires a UUID Idempotency-Key. Replay protection is milestone 3.",
-    "version": "0.2.0"
+    "description": "INR wallet backend with bearer authentication and explicit SQL. Every POST requires a UUID Idempotency-Key, scoped to the authenticated caller. Identical retries return the saved status and JSON body with Idempotent-Replay: true. Changing the endpoint, resource or validated body with the same key returns 422. Concurrent duplicates wait up to five seconds; a still-busy key returns 409. Business failures are saved; validation, authentication and infrastructure failures are not.",
+    "version": "0.3.0"
   },
   "paths": {
     "/health/live": {
@@ -194,7 +194,7 @@
           "Users"
         ],
         "summary": "Create User",
-        "description": "Admin creates a user and receives a one-time bearer token.",
+        "description": "Admin creates a user. An identical retry replays the original token response.",
         "operationId": "create_user_users_post",
         "security": [
           {
@@ -230,6 +230,18 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserCreated"
+                }
+              }
+            },
+            "headers": {
+              "Idempotent-Replay": {
+                "description": "false for the initial response; true for a saved response",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
                 }
               }
             }
@@ -360,6 +372,18 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WalletResponse"
+                }
+              }
+            },
+            "headers": {
+              "Idempotent-Replay": {
+                "description": "false for the initial response; true for a saved response",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
                 }
               }
             }
@@ -865,6 +889,18 @@
                   "$ref": "#/components/schemas/TransferResponse"
                 }
               }
+            },
+            "headers": {
+              "Idempotent-Replay": {
+                "description": "false for the initial response; true for a saved response",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
+                }
+              }
             }
           },
           "400": {
@@ -983,6 +1019,18 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TransferResponse"
+                }
+              }
+            },
+            "headers": {
+              "Idempotent-Replay": {
+                "description": "false for the initial response; true for a saved response",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
                 }
               }
             }
@@ -1392,7 +1440,7 @@
           "token": {
             "type": "string",
             "title": "Token",
-            "description": "Shown once. Store securely; only its hash is persisted."
+            "description": "Store securely. Authentication stores a hash; the original creation response, including this token, is retained for administrator-scoped idempotent replay."
           }
         },
         "type": "object",

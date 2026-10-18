@@ -127,8 +127,9 @@ def artifacts():
             "name": "Wallet Ledger",
             "description": (
                 "Bootstrap an admin and set admin_token before running. Requests create a user "
-                "and wallet, then exercise implemented endpoints. Every POST uses a fresh UUID; "
-                "replay protection is milestone 3. Returned tokens stay local."
+                "and wallet, then exercise payments, exact replay and changed-body rejection. "
+                "Every POST needs a UUID key. Reuse a key only for an identical retry. "
+                "Returned tokens stay local."
             ),
             "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
         },
@@ -205,6 +206,54 @@ def transfer_demo(items):
         if saved_id != "transfer_id":
             item = renamed(item, {"transfer_id": saved_id})
         variations.append(item)
+        if kind == "peer":
+            next(h for h in item["request"]["header"] if h["key"] == "Idempotency-Key")["value"] = (
+                "{{peer_key}}"
+            )
+            item["event"].insert(
+                0,
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            'pm.collectionVariables.set("peer_key", '
+                            'pm.variables.replaceIn("{{$guid}}"));'
+                        ],
+                    },
+                },
+            )
+            item["event"][-1]["script"]["exec"].append(
+                'pm.collectionVariables.set("peer_response", pm.response.text());'
+            )
+            replay = copy.deepcopy(item)
+            replay["name"] = "Replay peer payment"
+            replay["event"] = [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            'pm.test("Saved status", () => pm.response.to.have.status(201));',
+                            'pm.test("Exact saved body", () => pm.expect(pm.response.text())'
+                            '.to.eql(pm.collectionVariables.get("peer_response")));',
+                            'pm.test("Replay header", () => pm.expect('
+                            'pm.response.headers.get("Idempotent-Replay")).to.eql("true"));',
+                        ],
+                    },
+                }
+            ]
+            changed = copy.deepcopy(replay)
+            changed["name"] = "Reject changed amount with the same key"
+            changed["request"]["body"]["raw"] = changed["request"]["body"]["raw"].replace(
+                '"amount": 1000', '"amount": 2000'
+            )
+            changed["event"][0]["script"]["exec"] = [
+                'pm.test("Conflict status", () => pm.response.to.have.status(422));',
+                'pm.test("Key reuse rejected", () => pm.expect(pm.response.json().code)'
+                '.to.eql("IDEMPOTENCY_KEY_REUSED"));',
+            ]
+            variations.extend([replay, changed])
     index = items.index(top_up)
     final_balance = copy.deepcopy(
         next(item for item in items if item["request"]["url"].endswith("/balance"))

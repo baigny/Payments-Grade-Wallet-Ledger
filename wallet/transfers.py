@@ -1,9 +1,7 @@
 """All money posting uses explicit SQL, ordered account locks, and one transaction."""
 
 import psycopg
-from psycopg.rows import dict_row
 
-from wallet import db
 from wallet.auth import Actor, authorize_owner, require_admin
 from wallet.errors import DomainError
 from wallet.models import MAX_MONEY, TransferCreate
@@ -67,7 +65,7 @@ def _configure_transaction(conn):
     conn.execute("SET LOCAL statement_timeout = '15s'")
 
 
-def create_transfer(actor: Actor, data: TransferCreate):
+def create_transfer(conn, actor: Actor, data: TransferCreate):
     if data.type in ("top_up", "fee"):
         require_admin(actor)
     source_id, destination_id = data.source_account_id, data.destination_account_id
@@ -80,63 +78,49 @@ def create_transfer(actor: Actor, data: TransferCreate):
             "INVALID_TRANSFER", "Withdrawal or fee requires only a source wallet", 422
         )
 
-    # autocommit avoids an implicit transaction before the explicit boundary below.
-    with db.connect(autocommit=True, row_factory=dict_row) as conn:
-        with conn.transaction():
-            _configure_transaction(conn)
-            if data.type == "top_up":
-                source_id = _system_account(conn, "cash_in")
-            elif data.type in ("withdrawal", "fee"):
-                destination_id = _system_account(
-                    conn, "cash_out" if data.type == "withdrawal" else "fee_revenue"
-                )
-            rows, source, destination = _lock_accounts(conn, source_id, destination_id)
-            if source["account_type"] == "wallet":
-                authorize_owner(actor, source["user_id"])
-            if (data.type != "top_up" and source["account_type"] != "wallet") or (
-                data.type in ("peer", "top_up") and destination["account_type"] != "wallet"
-            ):
-                raise DomainError("INVALID_TRANSFER", "Expected a user wallet account", 422)
-            result = _post_locked(
-                conn, actor, rows, source, destination, data.amount, data.type, data.note
-            )
-        # Deferred posting constraints have passed and COMMIT has completed here.
+    if data.type == "top_up":
+        source_id = _system_account(conn, "cash_in")
+    elif data.type in ("withdrawal", "fee"):
+        destination_id = _system_account(
+            conn, "cash_out" if data.type == "withdrawal" else "fee_revenue"
+        )
+    rows, source, destination = _lock_accounts(conn, source_id, destination_id)
+    if source["account_type"] == "wallet":
+        authorize_owner(actor, source["user_id"])
+    if (data.type != "top_up" and source["account_type"] != "wallet") or (
+        data.type in ("peer", "top_up") and destination["account_type"] != "wallet"
+    ):
+        raise DomainError("INVALID_TRANSFER", "Expected a user wallet account", 422)
+    result = _post_locked(conn, actor, rows, source, destination, data.amount, data.type, data.note)
     return result
 
 
-def reverse_transfer(actor: Actor, transfer_id: int):
+def reverse_transfer(conn, actor: Actor, transfer_id: int):
     require_admin(actor)
     try:
-        with db.connect(autocommit=True, row_factory=dict_row) as conn:
-            with conn.transaction():
-                _configure_transaction(conn)
-                original = conn.execute(
-                    "SELECT * FROM transfers WHERE id = %s", (transfer_id,)
-                ).fetchone()
-                if original is None:
-                    raise DomainError("NOT_FOUND", "Transfer was not found", 404)
-                if original["status"] != "posted" or original["type"] == "reversal":
-                    raise DomainError(
-                        "INVALID_REVERSAL", "Only original posted transfers reverse", 409
-                    )
-                rows, source, destination = _lock_accounts(
-                    conn, original["destination_account_id"], original["source_account_id"]
-                )
-                if conn.execute(
-                    "SELECT id FROM transfers WHERE reversal_of = %s", (transfer_id,)
-                ).fetchone():
-                    raise DomainError("ALREADY_REVERSED", "Transfer already has a reversal", 409)
-                result = _post_locked(
-                    conn,
-                    actor,
-                    rows,
-                    source,
-                    destination,
-                    original["amount"],
-                    "reversal",
-                    f"Reversal of transfer {transfer_id}",
-                    reversal_of=transfer_id,
-                )
+        original = conn.execute("SELECT * FROM transfers WHERE id = %s", (transfer_id,)).fetchone()
+        if original is None:
+            raise DomainError("NOT_FOUND", "Transfer was not found", 404)
+        if original["status"] != "posted" or original["type"] == "reversal":
+            raise DomainError("INVALID_REVERSAL", "Only original posted transfers reverse", 409)
+        rows, source, destination = _lock_accounts(
+            conn, original["destination_account_id"], original["source_account_id"]
+        )
+        if conn.execute(
+            "SELECT id FROM transfers WHERE reversal_of = %s", (transfer_id,)
+        ).fetchone():
+            raise DomainError("ALREADY_REVERSED", "Transfer already has a reversal", 409)
+        result = _post_locked(
+            conn,
+            actor,
+            rows,
+            source,
+            destination,
+            original["amount"],
+            "reversal",
+            f"Reversal of transfer {transfer_id}",
+            reversal_of=transfer_id,
+        )
     except psycopg.errors.UniqueViolation as exc:
         raise DomainError("ALREADY_REVERSED", "Transfer already has a reversal", 409) from exc
     return result

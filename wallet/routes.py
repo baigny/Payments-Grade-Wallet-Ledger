@@ -1,9 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Path, Query
+from fastapi import APIRouter, Body, Path, Query, Request
 
-from wallet import accounts, transfers
-from wallet.auth import CurrentActor, WriteKey
+from wallet import accounts, idempotency, transfers
+from wallet.auth import CurrentActor, WriteKey, authorize_owner, require_admin
 from wallet.models import (
     MAX_MONEY,
     TRANSFER_EXAMPLES,
@@ -18,21 +18,59 @@ from wallet.models import (
 )
 
 router = APIRouter()
+WRITE_RESPONSES = {
+    201: {
+        "headers": {
+            "Idempotent-Replay": {
+                "description": "false for the initial response; true for a saved response",
+                "schema": {"type": "string", "enum": ["true", "false"]},
+            }
+        }
+    }
+}
 ResourceID = Annotated[int, Path(ge=1, le=MAX_MONEY)]
 
 
-@router.post("/users", status_code=201, response_model=UserCreated, tags=["Users"])
-def create_user(data: UserCreate, actor: CurrentActor, _key: WriteKey):
-    """Admin creates a user and receives a one-time bearer token."""
-    return accounts.create_user(actor, data)
+@router.post(
+    "/users", status_code=201, responses=WRITE_RESPONSES, response_model=UserCreated, tags=["Users"]
+)
+def create_user(data: UserCreate, request: Request, actor: CurrentActor, key: WriteKey):
+    """Admin creates a user. An identical retry replays the original token response."""
+    require_admin(actor)
+    return idempotency.execute(
+        actor,
+        key,
+        request,
+        UserCreated,
+        lambda conn: accounts.create_user(conn, actor, data),
+        data.model_dump(mode="json"),
+    )
 
 
 @router.post(
-    "/users/{user_id}/wallets", status_code=201, response_model=WalletResponse, tags=["Wallets"]
+    "/users/{user_id}/wallets",
+    status_code=201,
+    responses=WRITE_RESPONSES,
+    response_model=WalletResponse,
+    tags=["Wallets"],
 )
-def create_wallet(user_id: ResourceID, data: WalletCreate, actor: CurrentActor, _key: WriteKey):
+def create_wallet(
+    user_id: ResourceID,
+    data: WalletCreate,
+    request: Request,
+    actor: CurrentActor,
+    key: WriteKey,
+):
     """Create an empty INR wallet for the caller, or for any user as an admin."""
-    return accounts.create_wallet(actor, user_id, data.name)
+    authorize_owner(actor, user_id)
+    return idempotency.execute(
+        actor,
+        key,
+        request,
+        WalletResponse,
+        lambda conn: accounts.create_wallet(conn, actor, user_id, data.name),
+        data.model_dump(mode="json"),
+    )
 
 
 @router.get("/users/{user_id}/wallets", response_model=WalletList, tags=["Wallets"])
@@ -55,26 +93,50 @@ def statement(
     return accounts.statement(actor, wallet_id, limit, offset)
 
 
-@router.post("/transfers", status_code=201, response_model=TransferResponse, tags=["Transfers"])
+@router.post(
+    "/transfers",
+    status_code=201,
+    responses=WRITE_RESPONSES,
+    response_model=TransferResponse,
+    tags=["Transfers"],
+)
 def create_transfer(
     data: Annotated[TransferCreate, Body(openapi_examples=TRANSFER_EXAMPLES)],
+    request: Request,
     actor: CurrentActor,
-    _key: WriteKey,
+    key: WriteKey,
 ):
     """Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.
 
     Amounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need
     source_account_id; peer needs both. System endpoints are resolved by the server.
     """
-    return transfers.create_transfer(actor, data)
+    if data.type in ("top_up", "fee"):
+        require_admin(actor)
+    return idempotency.execute(
+        actor,
+        key,
+        request,
+        TransferResponse,
+        lambda conn: transfers.create_transfer(conn, actor, data),
+        data.model_dump(mode="json"),
+    )
 
 
 @router.post(
     "/transfers/{transfer_id}/reversal",
     status_code=201,
+    responses=WRITE_RESPONSES,
     response_model=TransferResponse,
     tags=["Transfers"],
 )
-def reverse_transfer(transfer_id: ResourceID, actor: CurrentActor, _key: WriteKey):
+def reverse_transfer(transfer_id: ResourceID, request: Request, actor: CurrentActor, key: WriteKey):
     """Admin posts one full reversal. The original and its entries remain immutable."""
-    return transfers.reverse_transfer(actor, transfer_id)
+    require_admin(actor)
+    return idempotency.execute(
+        actor,
+        key,
+        request,
+        TransferResponse,
+        lambda conn: transfers.reverse_transfer(conn, actor, transfer_id),
+    )
