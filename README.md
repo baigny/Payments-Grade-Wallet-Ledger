@@ -151,9 +151,11 @@ python scripts/run_network_checks.py --output docs/evidence/network-smoke.json
 The default runs one round of 20 requests: ten post and ten fail for insufficient
 funds. It checks cached balances, statement totals and every successful payment's
 matching debit/credit pair. Each run uses a unique Compose project, its own database
-volume and an internal network without published ports. Temporary services and
-data are removed even when verification fails. The development database is untouched.
-Only counts and balances are saved; credentials remain in memory.
+volume and an internal network without published ports. It also sends ten parallel
+retries of a successful payment and rejects a changed amount with that key, then
+checks the balances again. Temporary services and data are removed even when
+verification fails. The development database is untouched. Only verification
+results are saved; credentials remain in memory.
 
 For an explicitly requested heavier network run, use
 `python scripts/run_network_checks.py --stress` (20 rounds of 100 requests).

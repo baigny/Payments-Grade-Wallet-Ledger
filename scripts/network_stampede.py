@@ -20,10 +20,10 @@ async def run(stress=False):
     limits = httpx.Limits(max_connections=requests, max_keepalive_connections=0)
     async with httpx.AsyncClient(base_url=base_url, limits=limits, timeout=30) as client:
 
-        async def call(method, path, token, body=None):
+        async def call(method, path, token, body=None, key=None):
             headers = {"Authorization": f"Bearer {token}"}
             if method == "POST":
-                headers["Idempotency-Key"] = str(uuid4())
+                headers["Idempotency-Key"] = str(key or uuid4())
             return await client.request(method, path, headers=headers, json=body)
 
         async def user(name):
@@ -65,20 +65,23 @@ async def run(stress=False):
                 },
             )
             assert funded.status_code == 201, "Network test funding failed"
+            keys = [uuid4() for _ in range(requests)]
+            peer_body = {
+                "type": "peer",
+                "source_account_id": source,
+                "destination_account_id": destination,
+                "amount": 1000,
+            }
             responses = await asyncio.gather(
                 *[
                     call(
                         "POST",
                         "/transfers",
                         sender["token"],
-                        {
-                            "type": "peer",
-                            "source_account_id": source,
-                            "destination_account_id": destination,
-                            "amount": 1000,
-                        },
+                        peer_body,
+                        key,
                     )
-                    for _ in range(requests)
+                    for key in keys
                 ]
             )
             posted = [r.json()["id"] for r in responses if r.status_code == 201]
@@ -89,6 +92,26 @@ async def run(stress=False):
             )
             assert len(rejected) == expected, f"Round {number}: expected {expected} rejections"
             assert all(r.json()["code"] == "INSUFFICIENT_FUNDS" for r in rejected)
+
+            original, key = next(
+                (response, key)
+                for response, key in zip(responses, keys, strict=True)
+                if response.status_code == 201
+            )
+            retries = await asyncio.gather(
+                *[call("POST", "/transfers", sender["token"], peer_body, key) for _ in range(10)]
+            )
+            assert all(
+                r.status_code == original.status_code
+                and r.content == original.content
+                and r.headers["Idempotent-Replay"] == "true"
+                for r in retries
+            ), "Parallel network retries must return the exact saved success"
+            changed = await call(
+                "POST", "/transfers", sender["token"], {**peer_body, "amount": 2000}, key
+            )
+            assert changed.status_code == 422
+            assert changed.json()["code"] == "IDEMPOTENCY_KEY_REUSED"
 
             entries, balances = [], []
             for actor, wallet_id in ((sender, source), (recipient, destination)):
@@ -124,6 +147,9 @@ async def run(stress=False):
                     "peer_debits": funding,
                     "peer_credits": funding,
                     "cache_matches_ledger": True,
+                    "replay_requests": 10,
+                    "identical_saved_responses": True,
+                    "changed_request_status": 422,
                 }
             )
         return {

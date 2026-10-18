@@ -4,6 +4,10 @@ The review compares the implementation to the supplied wallet brief, including
 its ground rules, schema deliverables, isolation exercises and exact stampede
 acceptance test. Requirements belonging to later milestones remain separate.
 
+This records the milestones 1 and 2 verification snapshot. Milestone 3 now adds
+[persistent POST replay](idempotency.md), with its own recovery tests and updated
+Swagger/Postman contracts; the counts below describe the earlier review run.
+
 ## Milestone 1
 
 | Brief requirement | Implementation and evidence |

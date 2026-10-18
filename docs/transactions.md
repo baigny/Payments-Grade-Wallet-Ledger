@@ -24,15 +24,15 @@ SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '15s';
 
+-- Claim the idempotency key here, before locking accounts (see idempotency.md).
 SELECT id, user_id, account_type, balance
 FROM accounts
 WHERE id = ANY($1)
 ORDER BY id
 FOR UPDATE;
 
--- Claim the idempotency key before locking accounts (see idempotency.md).
 -- Validate balances/ownership, insert transfer and both ledger lines,
--- update the two locked balances, and set status = 'posted'.
+-- update the two locked balances, set status = 'posted' and save the response.
 COMMIT;
 ```
 

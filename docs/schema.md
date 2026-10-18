@@ -38,6 +38,8 @@ normalization will happen at the API boundary.
   transfers have none at commit. Every entry references exactly one transfer and
   one account. Entries carry the attributes of the account/transfer relationship.
 - One user has many idempotency keys; `(user_id, key)` is unique.
+  A deferred constraint requires a completed response at commit; completed
+  responses and key identity fields cannot be updated. See [replay](idempotency.md).
 - One user has many authentication tokens; each token belongs to exactly one user.
 - One transfer has many status events; user actors are optional for system events.
 - Transfers and risk rules are many-to-many through `risk_flags`, which also

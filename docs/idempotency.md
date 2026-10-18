@@ -84,3 +84,16 @@ not make a promise about external payment providers, which are not called here.
 changed amounts, exact response bytes, all POST resources and saved failures.
 The generated Postman collection includes a peer replay and a changed-amount
 rejection, followed by a final balance check.
+
+`tests/test_idempotency_recovery.py` adds transaction and deferred-commit fault
+injection, waiting-claim rollback recovery, a bounded busy-key response,
+simultaneous different-body contenders, caller/resource/endpoint separation,
+revoked credentials and admin permission checks, new credentials for the same
+caller, Unicode/default-value normalization and immutable saved results.
+Parallel same-key reversals also return one posting.
+
+The isolated network smoke adds ten simultaneous replays of an already posted
+payment and one changed-amount retry. It compares actual HTTP response bytes and
+then verifies unchanged balances and matching ledger pairs. Its disposable data
+never reaches the development database. The heavier network stress mode remains
+opt-in.
