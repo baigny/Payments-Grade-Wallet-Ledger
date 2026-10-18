@@ -38,6 +38,7 @@ normalization will happen at the API boundary.
   transfers have none at commit. Every entry references exactly one transfer and
   one account. Entries carry the attributes of the account/transfer relationship.
 - One user has many idempotency keys; `(user_id, key)` is unique.
+- One user has many authentication tokens; each token belongs to exactly one user.
 - One transfer has many status events; user actors are optional for system events.
 - Transfers and risk rules are many-to-many through `risk_flags`, which also
   preserves the rule configuration that caused the flag.
@@ -160,7 +161,7 @@ before posting, preventing simultaneous reversal attempts.
 
 Status events use the transaction-local `wallet.actor_id` setting when supplied.
 Initial events fall back to `initiated_by`; otherwise the actor is recorded as
-system. The future authenticated service must set that actor before changing a
+system. The authenticated posting service sets that actor before changing a
 transfer. Runtime SQL is trusted service code, not a user-query interface.
 
 The database does not automatically update cached balances from ledger inserts.

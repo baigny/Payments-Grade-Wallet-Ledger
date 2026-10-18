@@ -101,7 +101,7 @@ def test_validation_and_errors_share_one_shape(api):
 def test_statement_pagination_is_bounded(api):
     user = api.user()
     wallet = api.wallet(user)
-    for query in ("limit=101", "offset=-1", "limit=0"):
+    for query in ("limit=101", "offset=-1", "limit=0", f"offset={2**63}"):
         response = api.request(
             "GET", f"/wallets/{wallet['id']}/statement?{query}", token=user["token"]
         )

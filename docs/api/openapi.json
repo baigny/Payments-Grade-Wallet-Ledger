@@ -695,6 +695,7 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 9223372036854775807,
               "minimum": 0,
               "default": 0,
               "title": "Offset"

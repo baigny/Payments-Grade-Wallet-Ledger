@@ -50,7 +50,7 @@ def statement(
     wallet_id: ResourceID,
     actor: CurrentActor,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=MAX_MONEY)] = 0,
 ):
     return accounts.statement(actor, wallet_id, limit, offset)
 

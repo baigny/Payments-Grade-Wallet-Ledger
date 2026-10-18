@@ -82,3 +82,37 @@ def test_completed_key_requires_response(db, wallets):
 
 def test_job_lock_is_seeded_once(db):
     assert db.execute("SELECT name FROM job_locks").fetchall() == [("reconciliation",)]
+
+
+def test_every_entity_has_generated_bigint_primary_key(db):
+    rows = db.execute(
+        "SELECT c.table_name, c.column_name, c.data_type, c.is_identity, c.identity_generation "
+        "FROM information_schema.columns c JOIN information_schema.key_column_usage k "
+        "ON (c.table_schema, c.table_name, c.column_name) = "
+        "(k.table_schema, k.table_name, k.column_name) "
+        "JOIN information_schema.table_constraints t "
+        "ON (t.constraint_schema, t.constraint_name) = (k.constraint_schema, k.constraint_name) "
+        "WHERE c.table_schema = current_schema() AND t.constraint_type = 'PRIMARY KEY'"
+    ).fetchall()
+    tables = {
+        row[0]
+        for row in db.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'"
+        )
+    }
+    assert {row[0] for row in rows} == tables
+    assert all(row[1:] == ("id", "bigint", "YES", "ALWAYS") for row in rows)
+
+
+def test_money_columns_use_bigint(db):
+    rows = db.execute(
+        "SELECT table_name, column_name, data_type FROM information_schema.columns "
+        "WHERE table_schema = current_schema() AND column_name IN ('amount', 'balance')"
+    ).fetchall()
+    assert {(row[0], row[1]) for row in rows} == {
+        ("accounts", "balance"),
+        ("transfers", "amount"),
+        ("ledger_entries", "amount"),
+    }
+    assert all(row[2] == "bigint" for row in rows)
