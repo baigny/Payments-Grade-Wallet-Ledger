@@ -32,7 +32,11 @@ def postman_item(spec, path, method, operation):
         "description": operation.get("description", operation.get("summary", "")),
     }
     if operation.get("security"):
-        token = "admin_token" if path in ("/users", "/transfers") else "user_token"
+        token = (
+            "admin_token"
+            if path in ("/users", "/transfers") or path.endswith("/reversal")
+            else "user_token"
+        )
         request["auth"] = {
             "type": "bearer",
             "bearer": [{"key": "token", "value": "{{" + token + "}}"}],

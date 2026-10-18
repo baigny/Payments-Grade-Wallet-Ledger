@@ -13,7 +13,10 @@ class API:
     owner: object
 
     def client(self):
-        return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+        return httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        )
 
     def request(self, method, path, *, token=None, key="auto", **kwargs):
         headers = {}
@@ -48,3 +51,16 @@ class API:
         )
         assert response.status_code == 201, response.text
         return response.json()
+
+    def transfer(self, user, **body):
+        return self.request("POST", "/transfers", token=user["token"], json=body)
+
+    def fund(self, wallet, amount=50000):
+        result = self.request(
+            "POST",
+            "/transfers",
+            token=self.admin_token,
+            json={"type": "top_up", "destination_account_id": wallet["id"], "amount": amount},
+        )
+        assert result.status_code == 201, result.text
+        return result.json()

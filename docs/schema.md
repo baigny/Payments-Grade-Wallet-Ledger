@@ -123,7 +123,8 @@ locked funds checks constant-time, at the cost of an extra write and a consisten
 obligation. Computing every balance from entries removes that cache but becomes
 more expensive as history grows. The application will update cached balances in
 the posting transaction; nightly reconciliation will independently compare them.
-The first milestone does not implement the posting service or reconciliation job.
+The posting service now updates the cache atomically with entries. Scheduled
+reconciliation follows in milestone 4.
 
 Keeping wallets and system accounts together lets ledger foreign keys reference
 one account type and gives all money movements the same posting structure.

@@ -3,13 +3,16 @@
 An INR wallet backend using FastAPI, PostgreSQL 16, and explicit SQL.
 
 The backend includes the accounting schema, bearer authentication, user and wallet
-creation, balance reads, and paginated statements. Transaction posting is the next
-batch of milestone 2.
+creation, balance reads, paginated statements, and atomic money movement.
 See [Plan.md](Plan.md) for the roadmap.
 
 Milestone 1 includes database constraints for balanced postings, immutable ledger
 and status history, valid transfer states, full reversals, and nonnegative stored
 wallet balances. The tests cover invalid direct SQL as well as application health.
+
+Milestone 2 adds explicit Read Committed transactions, account locks acquired by
+ascending ID, and rollback-safe posting. See [the money path](docs/transactions.md)
+for SQL, permissions, and the isolation-level trade-off.
 
 ## Run with Docker
 

@@ -2,11 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path, Query
 
-from wallet import accounts
+from wallet import accounts, transfers
 from wallet.auth import CurrentActor, WriteKey
 from wallet.models import (
     MAX_MONEY,
     StatementResponse,
+    TransferCreate,
+    TransferResponse,
     UserCreate,
     UserCreated,
     WalletCreate,
@@ -50,3 +52,24 @@ def statement(
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
     return accounts.statement(actor, wallet_id, limit, offset)
+
+
+@router.post("/transfers", status_code=201, response_model=TransferResponse, tags=["Transfers"])
+def create_transfer(data: TransferCreate, actor: CurrentActor, _key: WriteKey):
+    """Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.
+
+    Amounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need
+    source_account_id; peer needs both. System endpoints are resolved by the server.
+    """
+    return transfers.create_transfer(actor, data)
+
+
+@router.post(
+    "/transfers/{transfer_id}/reversal",
+    status_code=201,
+    response_model=TransferResponse,
+    tags=["Transfers"],
+)
+def reverse_transfer(transfer_id: ResourceID, actor: CurrentActor, _key: WriteKey):
+    """Admin posts one full reversal. The original and its entries remain immutable."""
+    return transfers.reverse_transfer(actor, transfer_id)
