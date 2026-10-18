@@ -6,6 +6,10 @@ The first milestone establishes the application foundation and accounting schema
 Payment routes and authentication will follow with the transaction milestone.
 See [Plan.md](Plan.md) for the roadmap.
 
+Milestone 1 includes database constraints for balanced postings, immutable ledger
+and status history, valid transfer states, full reversals, and nonnegative stored
+wallet balances. The tests cover invalid direct SQL as well as application health.
+
 ## Run with Docker
 
 ```sh

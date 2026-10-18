@@ -127,6 +127,44 @@ The first milestone does not implement the posting service or reconciliation job
 Keeping wallets and system accounts together lets ledger foreign keys reference
 one account type and gives all money movements the same posting structure.
 
+## Database protections
+
+| Invariant | Enforcement |
+|---|---|
+| Positive money amounts | `BIGINT` columns with `CHECK (amount > 0)` |
+| User wallets cannot have negative stored balances | Conditional account balance check |
+| Accounts start empty | Insert trigger rejects nonzero opening balances |
+| Wallets have owners; system accounts do not | Ownership check and immutable account identity |
+| Posted transfers balance and match their amount | Deferred constraint triggers on transfers and entries |
+| Entries belong to the declared transfer endpoints | Deferred posting validator checks debit/credit accounts |
+| Unposted transfers move no money | Deferred validator requires zero entries |
+| Ledger and status history are append-only | Mutation/truncation triggers plus runtime permissions |
+| Posted transfers cannot acquire extra entries | Insert guard locks the parent and rejects completed states |
+| Status transitions are valid and audited | Transfer guards and automatic status-event trigger |
+| One exact full reversal of an original transfer | Unique reversal link plus endpoint/amount/status validation |
+| Idempotency keys are caller-scoped | Unique `(user_id, key)` constraint |
+
+The posting checks are deferred until commit so a transaction can create a pending
+transfer, append all lines, and mark it posted atomically. A posted transfer's
+debit total and credit total must each equal its declared amount. Multiple lines
+per direction are permitted, but all debits belong to the source and all credits
+to the destination. Fees are separate transfers rather than split postings.
+
+Allowed state changes are `pending -> held/posted/rejected` and
+`held -> posted/rejected`. Posted and rejected states are terminal. Reversal keeps
+the original posted and adds a separate inverse transfer; reversal-of-reversal
+and partial reversals are not supported. A reserved reversal link is unique even
+before posting, preventing simultaneous reversal attempts.
+
+Status events use the transaction-local `wallet.actor_id` setting when supplied.
+Initial events fall back to `initiated_by`; otherwise the actor is recorded as
+system. The future authenticated service must set that actor before changing a
+transfer. Runtime SQL is trusted service code, not a user-query interface.
+
+The database does not automatically update cached balances from ledger inserts.
+The posting service must perform those updates within the same transaction.
+Reconciliation will detect any cache/ledger mismatch independently.
+
 ## Query-driven indexes
 
 | Query | Index | Cost / reason |
@@ -160,3 +198,7 @@ migration history. Owner credentials are reserved for migrations and tests.
 
 Owner/superuser access is trusted administrative access; it can disable triggers.
 Corruption fixtures must use an isolated test schema, never a production database.
+
+Implementation references: PostgreSQL's [deferred constraint triggers](https://www.postgresql.org/docs/16/sql-createtrigger.html),
+psycopg's [transaction contexts](https://www.psycopg.org/psycopg3/docs/basic/transactions.html),
+and Docker Compose's [startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/).
