@@ -21,7 +21,7 @@
 | Statement / balance | Query results and cached account attribute, not separate entities |
 | Fee / top-up / withdrawal | Transfer types; system endpoints use the same account model |
 | Reversal | New transfer linked to the original, not a ledger edit |
-| Authentication token | Deferred to the authentication milestone |
+| Authentication token | `auth_tokens`: user, unique SHA-256 hash, creation/revocation times |
 
 Every table uses a system-generated `BIGINT` identity primary key. Emails and phone
 numbers are externally supplied, changeable identifiers, so they are unique
@@ -52,6 +52,7 @@ erDiagram
     users ||--o{ accounts : owns
     users o|--o{ transfers : initiates
     users ||--o{ idempotency_keys : supplies
+    users ||--o{ auth_tokens : authenticates
     users o|--o{ transfer_status_events : acts
     accounts ||--o{ transfers : source
     accounts ||--o{ transfers : destination

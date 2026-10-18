@@ -2,8 +2,9 @@
 
 An INR wallet backend using FastAPI, PostgreSQL 16, and explicit SQL.
 
-The first milestone establishes the application foundation and accounting schema.
-Payment routes and authentication will follow with the transaction milestone.
+The backend includes the accounting schema, bearer authentication, user and wallet
+creation, balance reads, and paginated statements. Transaction posting is the next
+batch of milestone 2.
 See [Plan.md](Plan.md) for the roadmap.
 
 Milestone 1 includes database constraints for balanced postings, immutable ledger
@@ -53,8 +54,22 @@ CI runs the full suite against PostgreSQL through Compose.
 
 Swagger is served directly from the application's OpenAPI definition. Import
 [the Postman collection](postman/Wallet-Ledger.postman_collection.json) and
-[local environment](postman/Local.postman_environment.json), then run the two
-health requests. The readiness request expects the migrated database to be up.
+[local environment](postman/Local.postman_environment.json). Bootstrap the first
+administrator and paste its generated token into the environment's `admin_token`:
+
+```sh
+docker compose run --rm api python -m wallet.bootstrap
+```
+
+The command prints the token once and refuses to overwrite an existing admin.
+Tokens are random opaque credentials; only SHA-256 hashes are stored. User
+creation is admin-only and returns a new user's token once. Wallet reads and
+writes require ownership, with an explicit admin override. Revoked tokens fail
+authentication. The collection saves user and wallet IDs locally as requests run.
+
+Every POST requires a UUID `Idempotency-Key`. This milestone validates the header;
+Milestone 3 will add persistence and exact response replay. Use a fresh key for
+each operation and do not rely on retries being deduplicated yet.
 
 The versioned [OpenAPI export](docs/api/openapi.json) and Postman collection cover
 implemented routes only. Regenerate them whenever the API changes:
