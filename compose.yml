@@ -1,0 +1,74 @@
+x-app: &app
+  build: .
+  environment:
+    PGHOST: db
+    PGPORT: 5432
+    PGDATABASE: ${POSTGRES_DB:-wallet}
+    PGUSER: wallet_app
+    PGPASSWORD: ${WALLET_APP_PASSWORD:-local-app-password}
+
+services:
+  db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wallet}
+      POSTGRES_USER: ${POSTGRES_USER:-wallet_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-wallet-password}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    <<: *app
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB:-wallet}
+      PGUSER: ${POSTGRES_USER:-wallet_owner}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-local-wallet-password}
+      WALLET_APP_PASSWORD: ${WALLET_APP_PASSWORD:-local-app-password}
+    command: ["python", "-m", "wallet.migrate", "--provision-app-role"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "wallet.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  test:
+    <<: *app
+    profiles: ["test"]
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB:-wallet}
+      PGUSER: ${POSTGRES_USER:-wallet_owner}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-local-wallet-password}
+    command: ["pytest", "-q"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:

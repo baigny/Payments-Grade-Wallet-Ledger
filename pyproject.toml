@@ -21,6 +21,7 @@ include = ["wallet*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = ["database: requires a disposable PostgreSQL database"]
 
 [tool.ruff]

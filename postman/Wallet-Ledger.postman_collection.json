@@ -1,0 +1,86 @@
+{
+  "info": {
+    "name": "Wallet Ledger",
+    "description": "Milestone 1 health checks. Start Docker Compose before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Check application liveness",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/health/live",
+        "description": "Check application liveness"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Service is healthy\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response includes request ID\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "        .to.be.a(\"string\").and.not.empty;",
+              "});",
+              "pm.test(\"Response matches health status\", function () {",
+              "    pm.expect(pm.response.json().status)",
+              "        .to.eql(\"ok\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Check database and schema readiness",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/health/ready",
+        "description": "Check database and schema readiness"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Service is healthy\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response includes request ID\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "        .to.be.a(\"string\").and.not.empty;",
+              "});",
+              "pm.test(\"Response matches health status\", function () {",
+              "    pm.expect(pm.response.json().status)",
+              "        .to.eql(\"ready\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

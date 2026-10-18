@@ -1,16 +1,42 @@
 import logging
 import time
+from typing import Literal
 from uuid import uuid4
 
 import psycopg
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from wallet.db import connect
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
-app = FastAPI(title="Wallet Ledger", version="0.1.0")
+app = FastAPI(
+    title="Wallet Ledger",
+    version="0.1.0",
+    description=(
+        "INR wallet backend. Milestone 1 provides health endpoints and the accounting schema. "
+        "Payment endpoints will be added with the transaction milestone."
+    ),
+    openapi_tags=[
+        {"name": "Health", "description": "Application liveness and database readiness."}
+    ],
+)
+
+
+class LiveStatus(BaseModel):
+    status: Literal["ok"]
+
+
+class ReadyStatus(BaseModel):
+    status: Literal["ready"]
+
+
+class ErrorResponse(BaseModel):
+    code: str
+    message: str
+    request_id: str
 
 
 @app.middleware("http")
@@ -29,12 +55,20 @@ async def request_context(request: Request, call_next):
     return response
 
 
-@app.get("/health/live")
+@app.get(
+    "/health/live", tags=["Health"], summary="Check application liveness", response_model=LiveStatus
+)
 def live():
     return {"status": "ok"}
 
 
-@app.get("/health/ready")
+@app.get(
+    "/health/ready",
+    tags=["Health"],
+    summary="Check database and schema readiness",
+    response_model=ReadyStatus,
+    responses={503: {"model": ErrorResponse, "description": "Database or schema is unavailable"}},
+)
 def ready(request: Request):
     try:
         with connect(connect_timeout=3) as conn:
