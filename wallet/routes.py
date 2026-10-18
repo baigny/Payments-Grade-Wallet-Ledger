@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Body, Path, Query
 
 from wallet import accounts, transfers
 from wallet.auth import CurrentActor, WriteKey
 from wallet.models import (
     MAX_MONEY,
+    TRANSFER_EXAMPLES,
     StatementResponse,
     TransferCreate,
     TransferResponse,
@@ -55,7 +56,11 @@ def statement(
 
 
 @router.post("/transfers", status_code=201, response_model=TransferResponse, tags=["Transfers"])
-def create_transfer(data: TransferCreate, actor: CurrentActor, _key: WriteKey):
+def create_transfer(
+    data: Annotated[TransferCreate, Body(openapi_examples=TRANSFER_EXAMPLES)],
+    actor: CurrentActor,
+    _key: WriteKey,
+):
     """Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.
 
     Amounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need

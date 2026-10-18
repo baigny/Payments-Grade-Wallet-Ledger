@@ -13,6 +13,9 @@ wallet balances. The tests cover invalid direct SQL as well as application healt
 Milestone 2 adds explicit Read Committed transactions, account locks acquired by
 ascending ID, and rollback-safe posting. See [the money path](docs/transactions.md)
 for SQL, permissions, and the isolation-level trade-off.
+The [two-session isolation lab](docs/isolation.md) includes captured commands and
+output. [Concurrency results](docs/concurrency.md) cover the unsafe counterexample,
+20 stampede rounds, opposite-direction payments, and concurrent reversals.
 
 ## Run with Docker
 
@@ -65,10 +68,27 @@ docker compose run --rm api python -m wallet.bootstrap
 ```
 
 The command prints the token once and refuses to overwrite an existing admin.
+After an automated demo, or when an additional local credential is needed, run
+`docker compose run --rm api python -m wallet.bootstrap --issue-token`. This
+requires database access and preserves existing tokens; it is not an HTTP endpoint.
 Tokens are random opaque credentials; only SHA-256 hashes are stored. User
 creation is admin-only and returns a new user's token once. Wallet reads and
 writes require ownership, with an explicit admin override. Revoked tokens fail
 authentication. The collection saves user and wallet IDs locally as requests run.
+
+The collection creates two users and wallets, funds the sender, sends a peer
+payment, withdraws funds, charges a fee, reverses the peer payment, and checks the
+final sender balance. Swagger offers request examples for every movement type.
+To run this flow automatically, install Node.js and run:
+
+```sh
+python scripts/run_postman.py
+```
+
+On a fresh local database the runner bootstraps the admin automatically. If an
+admin already exists, supply its token through `WALLET_ADMIN_TOKEN`. Credentials
+are passed to Newman through a temporary environment file and are not logged.
+CI runs this same Postman flow after the Python suite and application startup.
 
 Every POST requires a UUID `Idempotency-Key`. This milestone validates the header;
 Milestone 3 will add persistence and exact response replay. Use a fresh key for

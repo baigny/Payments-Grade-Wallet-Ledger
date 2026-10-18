@@ -816,6 +816,41 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TransferCreate"
+              },
+              "examples": {
+                "peer": {
+                  "summary": "Send to another wallet",
+                  "value": {
+                    "type": "peer",
+                    "source_account_id": 4,
+                    "destination_account_id": 5,
+                    "amount": 1000
+                  }
+                },
+                "top_up": {
+                  "summary": "Admin simulates a top-up",
+                  "value": {
+                    "type": "top_up",
+                    "destination_account_id": 4,
+                    "amount": 25000
+                  }
+                },
+                "withdrawal": {
+                  "summary": "Withdraw from an owned wallet",
+                  "value": {
+                    "type": "withdrawal",
+                    "source_account_id": 4,
+                    "amount": 750
+                  }
+                },
+                "fee": {
+                  "summary": "Admin charges a fee",
+                  "value": {
+                    "type": "fee",
+                    "source_account_id": 4,
+                    "amount": 100
+                  }
+                }
               }
             }
           }

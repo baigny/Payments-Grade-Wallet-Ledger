@@ -1,6 +1,7 @@
 """Export OpenAPI and a Postman collection for the implemented routes."""
 
 import argparse
+import copy
 import json
 import re
 from pathlib import Path
@@ -118,6 +119,9 @@ def artifacts():
         if method in METHODS
     ]
     operations.sort(key=lambda item: (ORDER.get((item[1], item[0]), 99), item[0], item[1]))
+    items = [postman_item(spec, *operation) for operation in operations]
+    if "/transfers" in spec["paths"]:
+        items = transfer_demo(items)
     collection = {
         "info": {
             "name": "Wallet Ledger",
@@ -132,15 +136,90 @@ def artifacts():
             {"key": "base_url", "value": "http://localhost:8000", "type": "string"},
             *[
                 {"key": key, "value": "", "type": "string"}
-                for key in ("admin_token", "user_token", "user_id", "wallet_id", "transfer_id")
+                for key in (
+                    "admin_token",
+                    "user_token",
+                    "user_id",
+                    "wallet_id",
+                    "transfer_id",
+                    "recipient_user_id",
+                    "recipient_token",
+                    "recipient_wallet_id",
+                )
             ],
         ],
-        "item": [postman_item(spec, *operation) for operation in operations],
+        "item": items,
     }
     return {
         ROOT / "docs/api/openapi.json": spec,
         ROOT / "postman/Wallet-Ledger.postman_collection.json": collection,
     }
+
+
+def transfer_demo(items):
+    """Extend endpoint coverage into a runnable two-user payment scenario."""
+    create_user = next(item for item in items if item["request"]["url"] == "{{base_url}}/users")
+    create_wallet = next(
+        item
+        for item in items
+        if item["request"]["method"] == "POST" and item["request"]["url"].endswith("/wallets")
+    )
+    top_up = next(item for item in items if item["request"]["url"] == "{{base_url}}/transfers")
+
+    def renamed(item, replacements):
+        text = json.dumps(item)
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        return json.loads(text)
+
+    recipient = renamed(
+        create_user, {"user_id": "recipient_user_id", "user_token": "recipient_token"}
+    )
+    recipient["name"] = "Create recipient user"
+    recipient_wallet = renamed(
+        create_wallet,
+        {
+            "user_id": "recipient_user_id",
+            "user_token": "recipient_token",
+            "wallet_id": "recipient_wallet_id",
+        },
+    )
+    recipient_wallet["name"] = "Create recipient wallet"
+    variations = []
+    for kind, amount, actor, saved_id in (
+        ("peer", 1000, "user_token", "transfer_id"),
+        ("withdrawal", 750, "user_token", "withdrawal_id"),
+        ("fee", 100, "admin_token", "fee_id"),
+    ):
+        item = copy.deepcopy(top_up)
+        item["name"] = f"Post {kind}"
+        item["request"]["auth"]["bearer"][0]["value"] = "{{" + actor + "}}"
+        body = {"type": kind, "source_account_id": "__SOURCE__", "amount": amount}
+        if kind == "peer":
+            body["destination_account_id"] = "__DESTINATION__"
+        item["request"]["body"]["raw"] = (
+            json.dumps(body, indent=2)
+            .replace('"__SOURCE__"', "{{wallet_id}}")
+            .replace('"__DESTINATION__"', "{{recipient_wallet_id}}")
+        )
+        if saved_id != "transfer_id":
+            item = renamed(item, {"transfer_id": saved_id})
+        variations.append(item)
+    index = items.index(top_up)
+    final_balance = copy.deepcopy(
+        next(item for item in items if item["request"]["url"].endswith("/balance"))
+    )
+    final_balance["name"] = "Verify final sender balance"
+    final_balance["event"][0]["script"]["exec"].append(
+        'pm.test("Final balance", () => pm.expect(pm.response.json().balance).to.eql(24150));'
+    )
+    return (
+        items[:index]
+        + [recipient, recipient_wallet, top_up]
+        + variations
+        + items[index + 1 :]
+        + [final_balance]
+    )
 
 
 def serialized(value):

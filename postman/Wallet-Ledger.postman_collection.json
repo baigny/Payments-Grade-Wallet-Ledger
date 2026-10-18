@@ -34,6 +34,21 @@
       "key": "transfer_id",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "recipient_user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recipient_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recipient_wallet_id",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -325,6 +340,129 @@
       ]
     },
     {
+      "name": "Create recipient user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/users",
+        "description": "Admin creates a user and receives a one-time bearer token.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{new_email}}\",\n  \"name\": \"Nila\",\n  \"phone\": \"{{new_phone}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set(\"new_email\", pm.variables.replaceIn(\"{{$guid}}\") + \"@example.test\");",
+              "pm.collectionVariables.set(\"new_phone\", \"+919\" + Date.now().toString().slice(-9));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"recipient_user_id\", pm.response.json().id);",
+              "    pm.collectionVariables.set(\"recipient_token\", pm.response.json().token);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create recipient wallet",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/users/{{recipient_user_id}}/wallets",
+        "description": "Create an empty INR wallet for the caller, or for any user as an admin.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{recipient_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Main\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"recipient_wallet_id\", pm.response.json().id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Create Transfer",
       "request": {
         "method": "POST",
@@ -381,6 +519,174 @@
       ]
     },
     {
+      "name": "Post peer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers",
+        "description": "Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.\n\nAmounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need\nsource_account_id; peer needs both. System endpoints are resolved by the server.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"peer\",\n  \"source_account_id\": {{wallet_id}},\n  \"amount\": 1000,\n  \"destination_account_id\": {{recipient_wallet_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"transfer_id\", pm.response.json().id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Post withdrawal",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers",
+        "description": "Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.\n\nAmounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need\nsource_account_id; peer needs both. System endpoints are resolved by the server.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"withdrawal\",\n  \"source_account_id\": {{wallet_id}},\n  \"amount\": 750\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"withdrawal_id\", pm.response.json().id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Post fee",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers",
+        "description": "Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.\n\nAmounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need\nsource_account_id; peer needs both. System endpoints are resolved by the server.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"fee\",\n  \"source_account_id\": {{wallet_id}},\n  \"amount\": 100\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"fee_id\", pm.response.json().id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Reverse Transfer",
       "request": {
         "method": "POST",
@@ -415,6 +721,43 @@
               "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
               "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
               "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Verify final sender balance",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/wallets/{{wallet_id}}/balance",
+        "description": "Balance",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "pm.test(\"Final balance\", () => pm.expect(pm.response.json().balance).to.eql(24150));"
             ]
           }
         }

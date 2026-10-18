@@ -233,3 +233,27 @@ def test_statement_has_stable_time_and_id_pagination(api):
     assert combined == sorted(
         combined, key=lambda row: (row["created_at"], row["id"]), reverse=True
     )
+
+
+def test_receiver_overflow_rejects_without_partial_posting(api):
+    sender, recipient = api.user(), api.user()
+    source, destination = api.wallet(sender), api.wallet(recipient)
+    api.fund(destination, 2**63 - 1)
+    api.fund(source, 1)
+    response = api.transfer(
+        sender,
+        type="peer",
+        source_account_id=source["id"],
+        destination_account_id=destination["id"],
+        amount=1,
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "BALANCE_OVERFLOW"
+    with api.owner() as conn:
+        assert conn.execute("SELECT count(*) FROM transfers").fetchone()[0] == 2
+        assert (
+            conn.execute("SELECT balance FROM accounts WHERE id = %s", (source["id"],)).fetchone()[
+                0
+            ]
+            == 1
+        )
