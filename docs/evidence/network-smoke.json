@@ -1,0 +1,19 @@
+{
+  "mode": "smoke",
+  "transport": "HTTP over Docker network to Uvicorn",
+  "rounds": [
+    {
+      "round": 1,
+      "requests": 20,
+      "posted": 10,
+      "insufficient_funds": 10,
+      "sender_balance": 0,
+      "recipient_balance": 10000,
+      "peer_debits": 10000,
+      "peer_credits": 10000,
+      "cache_matches_ledger": true
+    }
+  ],
+  "completed_at": "2026-10-18T15:38:10.265335+00:00",
+  "isolated": true
+}

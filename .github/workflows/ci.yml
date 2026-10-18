@@ -29,6 +29,10 @@ jobs:
           node-version: '22'
       - name: Run Postman collection
         run: python scripts/run_postman.py
+      - name: Capture two-psql-process isolation lab
+        run: python scripts/psql_lab.py --output /tmp/isolation.md
+      - name: Run isolated lightweight network smoke test
+        run: python scripts/run_network_checks.py --output /tmp/network-smoke.json
       - name: Logs
         if: failure()
         run: docker compose logs --no-color

@@ -95,7 +95,7 @@ The lab uses disposable tables, not wallet balances. Reproduce with an owner
 connection configured through PG* variables or DATABASE_URL:
 
 ```sh
-python scripts/isolation_lab.py --output docs/isolation.md
+python scripts/isolation_lab.py
 ```
 
 For a manual run, create a scratch schema and set both sessions' search_path to it,

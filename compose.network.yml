@@ -1,0 +1,53 @@
+# Disposable network verification; started only by scripts/run_network_checks.py.
+x-app: &app
+  image: ${WALLET_TEST_IMAGE:?Build the API image first}
+  environment: &database
+    PGHOST: db
+    PGDATABASE: wallet
+    PGUSER: wallet_app
+    PGPASSWORD: network-app-password
+
+services:
+  db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: wallet
+      POSTGRES_USER: wallet_owner
+      POSTGRES_PASSWORD: network-owner-password
+    volumes:
+      - network_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wallet_owner -d wallet"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  migrate:
+    <<: *app
+    environment:
+      <<: *database
+      PGUSER: wallet_owner
+      PGPASSWORD: network-owner-password
+      WALLET_APP_PASSWORD: network-app-password
+    command: ["python", "-m", "wallet.migrate", "--provision-app-role"]
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  client:
+    <<: *app
+    profiles: ["client"]
+    environment:
+      API_BASE_URL: http://api:8000
+    command: ["python", "scripts/network_stampede.py"]
+
+volumes:
+  network_data:
