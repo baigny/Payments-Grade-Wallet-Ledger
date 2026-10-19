@@ -20,6 +20,10 @@ ORDER = {
     ("get", "/wallets/{wallet_id}/statement"): 6,
     ("post", "/transfers"): 7,
     ("post", "/transfers/{transfer_id}/reversal"): 8,
+    ("post", "/admin/reconciliation/run"): 9,
+    ("get", "/admin/reconciliation/runs/{run_id}"): 10,
+    ("get", "/admin/reconciliation/runs/{run_id}/findings"): 11,
+    ("get", "/admin/reconciliation/runs/{run_id}/problems"): 12,
 }
 
 
@@ -35,7 +39,9 @@ def postman_item(spec, path, method, operation):
     if operation.get("security"):
         token = (
             "admin_token"
-            if path in ("/users", "/transfers") or path.endswith("/reversal")
+            if path in ("/users", "/transfers")
+            or path.endswith("/reversal")
+            or path.startswith("/admin/")
             else "user_token"
         )
         request["auth"] = {
@@ -88,6 +94,12 @@ def postman_item(spec, path, method, operation):
             "if (pm.response.code === 201) {",
             '    pm.collectionVariables.set("transfer_id", pm.response.json().id);',
             "}",
+        ]
+    if path == "/admin/reconciliation/run":
+        checks += [
+            'pm.collectionVariables.set("run_id", pm.response.json().id);',
+            'pm.test("Clean books", () => pm.expect(pm.response.json().status).to.eql("passed"));',
+            'pm.test("No findings", () => pm.expect(pm.response.json().finding_count).to.eql(0));',
         ]
     events = [{"listen": "test", "script": {"type": "text/javascript", "exec": checks}}]
     if path == "/users" and method == "post":

@@ -16,7 +16,18 @@ def canonical_json(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def execute(actor, key, request, model, operation, body=None):
+def execute(actor, key, request, model, operation, body=None, configure=None):
+    # Repeatable Read can abort a duplicate key insertion after its snapshot changes.
+    # SQLSTATE 40001 guarantees rollback, so retrying the whole transaction is safe.
+    for attempt in range(3):
+        try:
+            return _execute(actor, key, request, model, operation, body, configure)
+        except psycopg.errors.SerializationFailure:
+            if attempt == 2:
+                raise
+
+
+def _execute(actor, key, request, model, operation, body, configure):
     # Include the concrete path: a key cannot silently replay across resources or endpoints.
     fingerprint = hashlib.sha256(
         canonical_json(
@@ -29,7 +40,7 @@ def execute(actor, key, request, model, operation, body=None):
     ).hexdigest()
     replay = False
     with db.connect(autocommit=True, row_factory=dict_row) as conn, conn.transaction():
-        transfers._configure_transaction(conn)
+        (configure or transfers._configure_transaction)(conn)
         try:
             claimed = conn.execute(
                 "INSERT INTO idempotency_keys (user_id, key, request_hash) VALUES (%s, %s, %s) "
@@ -66,7 +77,7 @@ def execute(actor, key, request, model, operation, body=None):
                     body = model.model_validate(result).model_dump(mode="json")
                     status = 201
             except DomainError as exc:
-                if exc.status >= 500:
+                if exc.status >= 500 or not exc.cacheable:
                     raise
                 status = exc.status
                 body = {

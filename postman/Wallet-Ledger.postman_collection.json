@@ -842,6 +842,157 @@
       ]
     },
     {
+      "name": "Reconcile",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          }
+        ],
+        "url": "{{base_url}}/admin/reconciliation/run",
+        "description": "Admin checks one Repeatable Read snapshot. Reports problems without repairing money.\n\nfinding_count counts raw invariant violations; problem_count compares ledger and caches\nagainst posted business events. A single damaged entry can violate several invariants.\nThe run returns passed, failed (integrity problems), or error (checks could not complete).",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "pm.collectionVariables.set(\"run_id\", pm.response.json().id);",
+              "pm.test(\"Clean books\", () => pm.expect(pm.response.json().status).to.eql(\"passed\"));",
+              "pm.test(\"No findings\", () => pm.expect(pm.response.json().finding_count).to.eql(0));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reconciliation Report",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/reconciliation/runs/{{run_id}}",
+        "description": "Reconciliation Report",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reconciliation Findings",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/reconciliation/runs/{{run_id}}/findings",
+        "description": "Paginated raw invariant violations, including downstream consequences of corruption.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reconciliation Problems",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/reconciliation/runs/{{run_id}}/problems",
+        "description": "Compare entries and stored balances against immutable posted transfer records.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Verify final sender balance",
       "request": {
         "method": "GET",

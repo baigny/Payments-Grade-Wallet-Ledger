@@ -2,11 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Path, Query, Request
 
-from wallet import accounts, idempotency, transfers
+from wallet import accounts, idempotency, reconciliation, transfers
 from wallet.auth import CurrentActor, WriteKey, authorize_owner, require_admin
 from wallet.models import (
     MAX_MONEY,
     TRANSFER_EXAMPLES,
+    ReconciliationFindings,
+    ReconciliationRun,
     StatementResponse,
     TransferCreate,
     TransferResponse,
@@ -140,3 +142,70 @@ def reverse_transfer(transfer_id: ResourceID, request: Request, actor: CurrentAc
         TransferResponse,
         lambda conn: transfers.reverse_transfer(conn, actor, transfer_id),
     )
+
+
+@router.post(
+    "/admin/reconciliation/run",
+    status_code=201,
+    responses=WRITE_RESPONSES,
+    response_model=ReconciliationRun,
+    tags=["Reconciliation"],
+)
+def reconcile(request: Request, actor: CurrentActor, key: WriteKey):
+    """Admin checks one Repeatable Read snapshot. Reports problems without repairing money.
+
+    finding_count counts raw invariant violations; problem_count compares ledger and caches
+    against posted business events. A single damaged entry can violate several invariants.
+    The run returns passed, failed (integrity problems), or error (checks could not complete).
+    """
+    require_admin(actor)
+    return idempotency.execute(
+        actor,
+        key,
+        request,
+        ReconciliationRun,
+        lambda conn: reconciliation.run(conn),
+        configure=reconciliation.configure,
+    )
+
+
+@router.get(
+    "/admin/reconciliation/runs/{run_id}",
+    response_model=ReconciliationRun,
+    tags=["Reconciliation"],
+)
+def reconciliation_report(run_id: ResourceID, actor: CurrentActor):
+    require_admin(actor)
+    return reconciliation.report(run_id)
+
+
+@router.get(
+    "/admin/reconciliation/runs/{run_id}/findings",
+    response_model=ReconciliationFindings,
+    tags=["Reconciliation"],
+)
+def reconciliation_findings(
+    run_id: ResourceID,
+    actor: CurrentActor,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=MAX_MONEY)] = 0,
+):
+    """Paginated raw invariant violations, including downstream consequences of corruption."""
+    require_admin(actor)
+    return reconciliation.findings(run_id, limit, offset)
+
+
+@router.get(
+    "/admin/reconciliation/runs/{run_id}/problems",
+    response_model=ReconciliationFindings,
+    tags=["Reconciliation"],
+)
+def reconciliation_problems(
+    run_id: ResourceID,
+    actor: CurrentActor,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=MAX_MONEY)] = 0,
+):
+    """Compare entries and stored balances against immutable posted transfer records."""
+    require_admin(actor)
+    return reconciliation.findings(run_id, limit, offset, problems=True)
