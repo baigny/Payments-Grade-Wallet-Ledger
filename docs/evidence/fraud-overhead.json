@@ -1,0 +1,33 @@
+{
+  "samples_per_case": 30,
+  "initial_outgoing_history": 10000,
+  "postgres": "PostgreSQL 16.15 (Debian 16.15-1.pgdg12+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit",
+  "scope": "internal SQL and committed transaction; excludes HTTP/auth/idempotency",
+  "results": {
+    "baseline": {
+      "mean_ms": 6.783437266666667,
+      "median_ms": 6.655175,
+      "p95_ms": 8.624869
+    },
+    "amount": {
+      "mean_ms": 6.310628533333333,
+      "median_ms": 6.214169500000001,
+      "p95_ms": 7.288403
+    },
+    "velocity": {
+      "mean_ms": 11.510552766666667,
+      "median_ms": 10.374135500000001,
+      "p95_ms": 16.811683
+    },
+    "daily_total": {
+      "mean_ms": 10.210888366666666,
+      "median_ms": 9.788862,
+      "p95_ms": 13.343254
+    },
+    "all": {
+      "mean_ms": 10.881044833333334,
+      "median_ms": 10.785736499999999,
+      "p95_ms": 12.050693
+    }
+  }
+}

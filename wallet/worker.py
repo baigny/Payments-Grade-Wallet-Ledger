@@ -6,7 +6,7 @@ import signal
 import threading
 from datetime import UTC, datetime, timedelta
 
-from wallet import reconciliation
+from wallet import explanations, reconciliation
 from wallet.errors import DomainError
 
 
@@ -28,7 +28,19 @@ def due_date(now, hour, minute):
 
 
 def tick(now, hour, minute):
-    return reconciliation.execute("scheduled", due_date(now, hour, minute))
+    scheduled_for = due_date(now, hour, minute)
+    result = reconciliation.execute("scheduled", scheduled_for)
+    cutoff = datetime.combine(scheduled_for, datetime.min.time(), UTC).replace(
+        hour=hour, minute=minute
+    )
+    try:
+        explained = explanations.execute(100, cutoff)
+        if explained["explained"]:
+            logging.info("risk explanations saved=%s", explained["explained"])
+    except Exception as exc:
+        # Provider failure cannot invalidate an already saved reconciliation report.
+        logging.error("risk explanations unavailable: %s", type(exc).__name__)
+    return result
 
 
 def main():

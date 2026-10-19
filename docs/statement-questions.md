@@ -57,6 +57,13 @@ Only advisory text/label/timestamp are updated; no model response can release,
 reject or post a payment. Existing rule facts remain immutable. A separate
 NOWAIT job lock prevents overlapping explanation batches.
 
+The worker starts this step after its nightly reconciliation transaction. It uses
+the most recent 02:00 UTC cutoff (or configured schedule), explains eligible
+unexplained flags in batches of 100 per poll, and catches up any older backlog.
+Flags newer than that cutoff wait for the next night; admins can explain them
+immediately with the manual endpoint. Provider failures leave flags eligible for
+retry on the next poll and cannot roll back a saved reconciliation report.
+
 The optional Ollama endpoint is operator configuration, never client input.
 Requests have a ten-second HTTP timeout, redirects disabled, and bounded output.
 An unavailable provider fails visibly; it does not silently fabricate an answer.

@@ -9,6 +9,8 @@ This records the milestones 1 and 2 verification snapshot. Milestone 3 now adds
 Swagger/Postman contracts; the counts below describe the earlier review run.
 Milestone 4 now adds [scheduled reconciliation](reconciliation.md), including
 the 10,000-transfer corruption test and isolated million-entry query plans.
+Milestone 5 adds [fraud review](fraud.md) and [statement questions](statement-questions.md);
+earlier milestone boundaries below are preserved as the original review snapshot.
 
 ## Milestone 1
 

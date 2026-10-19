@@ -50,3 +50,7 @@ Fraud-specific tests exercise exact boundaries, rolling totals, parallel velocit
 checks, no-money holds, release/rejection races, current-funds checks, replay,
 ownership and immutable rule snapshots. The Postman collection temporarily lowers
 the amount threshold, creates/reviews two holds, then restores its prior setting.
+
+[Measured per-rule overhead](fraud-perf.md) uses an isolated database and actual
+committed money transactions against 10,000 prior outgoing payments. It compares
+no fraud SQL, amount only, velocity only, rolling total only, and all rules.

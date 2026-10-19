@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--entries", type=int, default=1000000)
+    parser.add_argument("--fraud", action="store_true", help="Measure per-rule posting overhead")
     args = parser.parse_args()
     config = json.loads(
         subprocess.check_output(
@@ -35,8 +36,18 @@ def main():
         return result.stdout
 
     try:
-        print(f"Starting isolated benchmark: {args.entries:,} entries.", flush=True)
+        print(
+            "Starting isolated fraud benchmark."
+            if args.fraud
+            else f"Starting isolated benchmark: {args.entries:,} entries.",
+            flush=True,
+        )
         run("up", "-d", "--wait", "db")
+        command = (
+            ["scripts/fraud_benchmark.py"]
+            if args.fraud
+            else ["scripts/reconciliation_benchmark.py", "--entries", str(args.entries)]
+        )
         evidence = json.loads(
             run(
                 "run",
@@ -48,13 +59,44 @@ def main():
                 "PGPASSWORD=network-owner-password",
                 "api",
                 "python",
-                "scripts/reconciliation_benchmark.py",
-                "--entries",
-                str(args.entries),
+                *command,
             )
         )
     finally:
         run("down", "--volumes", "--remove-orphans")
+    if args.fraud:
+        destination = ROOT / "docs/evidence/fraud-overhead.json"
+        destination.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+        lines = [
+            "# Fraud rule overhead",
+            "",
+            "Isolated PostgreSQL, 10,000 prior outgoing payments, 30 measured commits per case",
+            "after three warm-ups. Rules are enabled with non-triggering thresholds.",
+            "Baseline bypasses fraud SQL. Cases run sequentially on one growing fixture.",
+            "These single-machine samples exclude HTTP, authentication and idempotency.",
+            "",
+            "| Case | Mean ms | Median ms | P95 ms | Mean minus baseline ms |",
+            "|---|---:|---:|---:|---:|",
+        ]
+        baseline = evidence["results"]["baseline"]["mean_ms"]
+        for name, values in evidence["results"].items():
+            lines.append(
+                f"| {name} | {values['mean_ms']:.3f} | {values['median_ms']:.3f} | "
+                f"{values['p95_ms']:.3f} | {values['mean_ms'] - baseline:.3f} |"
+            )
+        lines += [
+            "",
+            "Differences can include cache and timing noise; this is not a production SLA.",
+            "The bulk fixture bypasses triggers only in its disposable schema; measured",
+            "transfers use the real transaction, ledger/audit triggers and commit checks.",
+            "Velocity and rolling totals use the partial source/time index, including amount.",
+            "Full evidence: [JSON](evidence/fraud-overhead.json). Reproduce with",
+            "`python scripts/run_reconciliation_benchmark.py --fraud`.",
+            "",
+        ]
+        (ROOT / "docs/fraud-perf.md").write_text("\n".join(lines), encoding="utf-8")
+        print("Fraud benchmark passed; isolated database removed.")
+        return
     destination = ROOT / "docs/evidence/reconciliation-plans.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

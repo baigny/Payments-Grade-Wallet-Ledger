@@ -61,6 +61,10 @@ error report reserves its date, so a persistent SQL error does not flood reports
 manual runs remain available. The optional cleanup of old idempotency keys is
 not enabled.
 
+The nightly worker also drains eligible flag explanations in a separate transaction.
+That provider step cannot authorize payments or invalidate a saved integrity report.
+See [the explanation boundary](statement-questions.md).
+
 SIGTERM/SIGINT stop future polls and allow the active transaction to finish;
 forced termination rolls back an unfinished report. A database outage cannot
 produce a durable error row, so the worker logs a safe error class and retries.

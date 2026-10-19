@@ -12,6 +12,7 @@
 | Status change | `transfer_status_events`: actor, old/new status, timestamp |
 | Fraud rule | `risk_rules`: configurable threshold, time window, hold/flag action |
 | Fraud flag / model explanation | `risk_flags`: transfer, rule snapshot, explanation, label |
+| Rule configuration change | `risk_rule_events`: rule, admin actor, old/new configuration |
 | Reconciliation run | `reconciliation_runs`: timestamps, status, counts, error |
 | Invariant violation | `reconciliation_findings`: raw check, entity, expected/actual values |
 | Event comparison | `reconciliation_problems`: entry/cache discrepancies against posted transfers |
@@ -45,6 +46,7 @@ normalization will happen at the API boundary.
 - One transfer has many status events; user actors are optional for system events.
 - Transfers and risk rules are many-to-many through `risk_flags`, which also
   preserves the rule configuration that caused the flag.
+- Rules have many immutable configuration events; each event has one admin actor.
 - One reconciliation run has many findings and event-comparison problems. Their entity IDs have
   no foreign key: a report must be able to describe missing or corrupted records.
 - A transfer has zero or one full reversal, enforced by a unique self-reference.
@@ -66,6 +68,8 @@ erDiagram
     transfers o|--o| transfers : reverses
     transfers ||--o{ risk_flags : receives
     risk_rules ||--o{ risk_flags : triggers
+    risk_rules ||--o{ risk_rule_events : records
+    users ||--o{ risk_rule_events : configures
     reconciliation_runs ||--o{ reconciliation_findings : reports
     reconciliation_runs ||--o{ reconciliation_problems : diagnoses
     users {

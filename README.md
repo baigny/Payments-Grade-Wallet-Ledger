@@ -3,7 +3,8 @@
 An INR wallet backend using FastAPI, PostgreSQL 16, and explicit SQL.
 
 The backend includes the accounting schema, bearer authentication, user and wallet
-creation, balance reads, paginated statements, atomic money movement and exact POST replay.
+creation, balance reads, paginated statements, atomic money movement, exact POST replay,
+fraud review and ledger-backed statement questions.
 See [Plan.md](Plan.md) for the roadmap.
 
 Milestone 1 includes database constraints for balanced postings, immutable ledger
@@ -224,3 +225,39 @@ Full-ledger sums and nightly grouped checks can afford sequential scans; orphan
 joins and transfer lookups benefit from primary-key and ledger transfer indexes.
 Report pagination uses `(run_id, id)`. See [measured query plans](docs/perf.md).
 CI keeps the normal integration suite and lightweight network smoke test.
+
+## Fraud review and statement questions
+
+Milestone 5 evaluates the database's amount, velocity and rolling-total rules in
+the locked money transaction. Any hold action creates a transfer without moving
+funds. Admin release/reject endpoints require a reason, record the actor and
+recheck current balances. Flag-only actions post normally. Rule management and
+review are available in Swagger and the Postman collection.
+
+See [fraud policies](docs/fraud.md), [rule-overhead measurements](docs/fraud-perf.md)
+and [the question/explanation protocol](docs/statement-questions.md).
+
+`POST /users/{id}/statement/ask` supports total sent to a named person, total
+received, the largest posted movement and movement counts in an inclusive UTC
+date range. Each answer contains an integer and the contributing transfer IDs.
+Amounts come from the authorized user's ledger entries. The model returns only
+validated intent; it cannot choose accounts or write SQL. The ten sample
+questions and expected fixture answers are checked in CI.
+
+The local `.env` defaults to `LLM_PROVIDER=mock`: an offline deterministic demo
+adapter with fixed JSON responses for tests. No model downloads, network calls
+or API keys are needed. For an already installed Ollama model, configure
+`LLM_PROVIDER=ollama`, `OLLAMA_BASE_URL` and `OLLAMA_MODEL`, then recreate API and
+worker. The Ollama HTTP adapter is tested with a mock transport; a real installed
+model is an optional integration, not part of the offline acceptance results.
+
+The nightly worker explains eligible risk flags using the rule snapshot and that
+wallet's last ten prior transfers. It saves two sentences and an advisory label.
+Notes are treated as untrusted data. This runs after reconciliation in a separate
+transaction and never releases, rejects or posts a payment. Model failures remain
+visible and are retried later; no fabricated answer is substituted.
+
+Fraud defaults intentionally hold high-velocity spending. Money-path stampede
+tests keep rules active with non-triggering thresholds; dedicated tests cover
+threshold boundaries, simultaneous velocity checks and admin-review races.
+The lightweight network test uses the same explicitly configured acceptance policy.
