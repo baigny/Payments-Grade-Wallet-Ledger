@@ -24,8 +24,8 @@ docker compose up --build
 ```
 
 PostgreSQL becomes healthy first, the migration service creates the schema, and
-the API and worker start only after migrations finish. The worker is currently an
-idle process with graceful shutdown; scheduled reconciliation comes later.
+the API and worker start only after migrations finish. The worker runs scheduled
+reconciliation and supports graceful shutdown.
 
 Local services:
 
@@ -47,7 +47,7 @@ movement total from immutable ledger entries when verifying the books. Computing
 every read from history costs a sum over that account's entries. Caching adds a
 balance write and contention on a busy wallet, and requires atomic updates with
 the ledger. Posting does both writes in one transaction; independent nightly
-reconciliation is milestone 4.
+reconciliation verifies them without repairing financial records.
 
 **Why share one table for wallets and system accounts?** Both are endpoints of
 the same money movement. One table gives ledger entries one account foreign key
@@ -193,3 +193,34 @@ connectivity and the presence of the account schema. Every response includes an
 pytest tests/test_health.py -q
 ruff check wallet tests scripts
 ```
+
+## Reconciliation
+
+Milestone 4 checks the books in one Repeatable Read snapshot and saves reports.
+Admin users can call `POST /admin/reconciliation/run` with an Idempotency-Key,
+then read its summary, raw findings and comparisons against posted business events.
+See [the reconciliation protocol](docs/reconciliation.md) for report semantics,
+permissions, error behavior and corruption acceptance checks.
+
+Compose automatically reads the local `.env` (ignored by Git). Use `.env.example`
+for a new checkout. The nightly schedule defaults to **02:00 UTC (07:30 India)**:
+`RECONCILIATION_ENABLED`, `RECONCILIATION_UTC_HOUR`, `RECONCILIATION_UTC_MINUTE`
+and `RECONCILIATION_STATEMENT_TIMEOUT_MS` control it. Recreate the worker after
+changing settings: `docker compose up -d --force-recreate worker`.
+
+The worker catches up the most recent due schedule date on startup, records at
+most one run for that date, and polls once per minute. It skips overlapping jobs
+and retries contention/outages on the next poll. Older missed dates are not
+backfilled. A completed error report consumes that schedule date; manual runs
+can investigate immediately without waiting for the next night.
+
+Run checks from a terminal with `docker compose run --rm api python -m wallet.reconciliation`.
+Exit codes are 0 (passed), 2 (integrity problems), 3 (check error), and 4 (busy).
+The command prints a report summary. It never changes balances or ledger entries.
+
+The brief's one-million-entry query benchmark runs only on explicit request in
+an isolated Docker database: `python scripts/run_reconciliation_benchmark.py`.
+Full-ledger sums and nightly grouped checks can afford sequential scans; orphan
+joins and transfer lookups benefit from primary-key and ledger transfer indexes.
+Report pagination uses `(run_id, id)`. See [measured query plans](docs/perf.md).
+CI keeps the normal integration suite and lightweight network smoke test.

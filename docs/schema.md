@@ -13,7 +13,8 @@
 | Fraud rule | `risk_rules`: configurable threshold, time window, hold/flag action |
 | Fraud flag / model explanation | `risk_flags`: transfer, rule snapshot, explanation, label |
 | Reconciliation run | `reconciliation_runs`: timestamps, status, counts, error |
-| Reconciliation problem | `reconciliation_findings`: check, entity, expected/actual values |
+| Invariant violation | `reconciliation_findings`: raw check, entity, expected/actual values |
+| Event comparison | `reconciliation_problems`: entry/cache discrepancies against posted transfers |
 | Scheduled job lock | `job_locks`: one stable row per job |
 | Migration | `schema_migrations`: applied SQL file and checksum; runner-managed |
 | Currency | Constrained `INR` column; no separate table for one supported value |
@@ -44,7 +45,7 @@ normalization will happen at the API boundary.
 - One transfer has many status events; user actors are optional for system events.
 - Transfers and risk rules are many-to-many through `risk_flags`, which also
   preserves the rule configuration that caused the flag.
-- One reconciliation run has many findings. Finding entity IDs deliberately have
+- One reconciliation run has many findings and event-comparison problems. Their entity IDs have
   no foreign key: a report must be able to describe missing or corrupted records.
 - A transfer has zero or one full reversal, enforced by a unique self-reference.
 
@@ -66,6 +67,7 @@ erDiagram
     transfers ||--o{ risk_flags : receives
     risk_rules ||--o{ risk_flags : triggers
     reconciliation_runs ||--o{ reconciliation_findings : reports
+    reconciliation_runs ||--o{ reconciliation_problems : diagnoses
     users {
         bigint id PK
         text name

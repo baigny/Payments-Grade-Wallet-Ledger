@@ -116,8 +116,9 @@ def test_failed_check_records_error_and_discards_partial_findings(api, monkeypat
         reconciliation,
         "CHECKS",
         {
+            "first": "SELECT 'global', NULL::bigint, '{}'::jsonb, '{}'::jsonb",
             "broken": "SELECT 'global', NULL::bigint, "
-            "jsonb_build_object('value', 1 / 0), '{}'::jsonb"
+            "jsonb_build_object('value', 1 / 0), '{}'::jsonb",
         },
     )
     response = run(api)
@@ -232,3 +233,58 @@ def test_findings_pagination_is_bounded(api):
         path = f"/admin/reconciliation/runs/{result['id']}/{suffix}"
         for query in ("limit=0", "limit=101", "offset=-1", f"offset={2**63}"):
             assert api.request("GET", path + "?" + query, token=api.admin_token).status_code == 422
+
+
+def test_computed_overdraft_is_detected_even_when_cache_is_nonnegative(api):
+    _, _, source, _ = setup_pair(api)
+    with api.owner() as conn, conn.transaction():
+        conn.execute("SET LOCAL session_replication_role = replica")
+        conn.execute(
+            "UPDATE ledger_entries SET direction = 'debit' WHERE account_id = %s", (source["id"],)
+        )
+    result = run(api).json()
+    assert result["status"] == "failed"
+    with api.owner() as conn:
+        assert conn.execute(
+            "SELECT entity_id FROM reconciliation_findings "
+            "WHERE run_id = %s AND check_name = 'overdraft'",
+            (result["id"],),
+        ).fetchall() == [(source["id"],)]
+        assert (
+            conn.execute("SELECT balance FROM accounts WHERE id = %s", (source["id"],)).fetchone()[
+                0
+            ]
+            == 50000
+        )
+
+
+def test_orphan_entry_is_reported_after_privileged_fk_bypass(api):
+    _, _, source, _ = setup_pair(api)
+    with api.owner() as conn, conn.transaction():
+        conn.execute("SET LOCAL session_replication_role = replica")
+        entry = conn.execute(
+            "INSERT INTO ledger_entries (transfer_id, account_id, direction, amount) "
+            "VALUES (99999999, %s, 'credit', 10) RETURNING id",
+            (source["id"],),
+        ).fetchone()[0]
+    result = run(api).json()
+    with api.owner() as conn:
+        assert conn.execute(
+            "SELECT entity_id FROM reconciliation_findings "
+            "WHERE run_id = %s AND check_name = 'orphan_entry'",
+            (result["id"],),
+        ).fetchall() == [(entry,)]
+
+
+def test_held_transfer_without_entries_is_not_an_orphan(api):
+    _, _, source, destination = setup_pair(api)
+    with api.owner() as conn, conn.transaction():
+        transfer = conn.execute(
+            "INSERT INTO transfers (source_account_id, destination_account_id, type, amount) "
+            "VALUES (%s, %s, 'peer', 100) RETURNING id",
+            (source["id"], destination["id"]),
+        ).fetchone()[0]
+        conn.execute("UPDATE transfers SET status = 'held' WHERE id = %s", (transfer,))
+    result = run(api).json()
+    assert result["status"] == "passed"
+    assert result["finding_count"] == result["problem_count"] == 0

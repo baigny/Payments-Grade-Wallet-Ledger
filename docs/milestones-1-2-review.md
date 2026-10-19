@@ -7,6 +7,8 @@ acceptance test. Requirements belonging to later milestones remain separate.
 This records the milestones 1 and 2 verification snapshot. Milestone 3 now adds
 [persistent POST replay](idempotency.md), with its own recovery tests and updated
 Swagger/Postman contracts; the counts below describe the earlier review run.
+Milestone 4 now adds [scheduled reconciliation](reconciliation.md), including
+the 10,000-transfer corruption test and isolated million-entry query plans.
 
 ## Milestone 1
 

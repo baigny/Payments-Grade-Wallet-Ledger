@@ -50,3 +50,30 @@ Local `.env` is ignored by Git; `.env.example` documents supported settings.
 minutes). It is validated as 1..3,600,000 milliseconds. Ordinary transfer timeouts
 and isolation remain unchanged. Optional idempotency-key expiry is not enabled;
 retaining keys preserves replay protection.
+
+## Schedule and operations
+
+The worker runs at the configured UTC hour/minute, with at most one scheduled
+run per date enforced by a unique database key. On startup it catches up only
+the most recent due date, then checks every minute. Multiple worker processes
+share the same NOWAIT lock. A busy job is retried on a later poll. A completed
+error report reserves its date, so a persistent SQL error does not flood reports;
+manual runs remain available. The optional cleanup of old idempotency keys is
+not enabled.
+
+SIGTERM/SIGINT stop future polls and allow the active transaction to finish;
+forced termination rolls back an unfinished report. A database outage cannot
+produce a durable error row, so the worker logs a safe error class and retries.
+Run `python -m wallet.reconciliation` inside Compose for a CLI summary.
+
+The 10,000-transfer corruption test runs in a temporary test schema with valid
+postings before tampering. Only the schema owner disables triggers locally for
+the three deliberate corruptions. Runtime API credentials cannot do this. Tests
+also cover computed overdrafts, orphan entries after privileged FK bypass, held
+transfers, repeatable snapshots, busy-key recovery and partial-report rollback.
+
+The explicit benchmark creates a separate Docker database and one synthetic
+schema. [Measured plans](perf.md) contain all six raw checks and the five event
+comparisons. This performance fixture bypasses per-row triggers only during
+bulk loading and then checks every invariant. It measures query execution,
+not posting throughput. The temporary database and volume are removed afterward.
