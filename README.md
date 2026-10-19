@@ -261,3 +261,11 @@ Fraud defaults intentionally hold high-velocity spending. Money-path stampede
 tests keep rules active with non-triggering thresholds; dedicated tests cover
 threshold boundaries, simultaneous velocity checks and admin-review races.
 The lightweight network test uses the same explicitly configured acceptance policy.
+
+## Review dataset
+
+The [seed guide](docs/seed.md) provides the required 1,000 users, 2,000 wallets
+and 100,000 transfers. The full-size dataset has been verified in a disposable
+schema with all posting and audit triggers enabled: 200,000 ledger entries,
+200,000 status events and no reconciliation discrepancies. The loader refuses
+an existing installation and never resets application data.
