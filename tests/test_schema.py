@@ -81,7 +81,10 @@ def test_completed_key_requires_response(db, wallets):
 
 
 def test_job_lock_is_seeded_once(db):
-    assert db.execute("SELECT name FROM job_locks").fetchall() == [("reconciliation",)]
+    assert db.execute("SELECT name FROM job_locks ORDER BY name").fetchall() == [
+        ("reconciliation",),
+        ("risk_explanations",),
+    ]
 
 
 def test_every_entity_has_generated_bigint_primary_key(db):

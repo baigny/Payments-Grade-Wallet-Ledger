@@ -41,6 +41,22 @@ async def run(stress=False):
             return response.json()
 
         sender, recipient = await user("Rhea"), await user("Kabir")
+        # This is the money-path stampede acceptance check, with active non-triggering rules.
+        rules = await call("GET", "/admin/risk-rules", admin_token)
+        assert rules.status_code == 200
+        for rule in rules.json()["items"]:
+            configured = await call(
+                "POST",
+                f"/admin/risk-rules/{rule['id']}",
+                admin_token,
+                {
+                    "threshold": 2**63 - 1,
+                    "window_seconds": rule["window_seconds"],
+                    "action": rule["action"],
+                    "enabled": True,
+                },
+            )
+            assert configured.status_code == 201
         evidence = []
         for number in range(1, rounds + 1):
             wallets = []

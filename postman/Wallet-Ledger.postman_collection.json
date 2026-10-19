@@ -993,6 +993,95 @@
       ]
     },
     {
+      "name": "Transfer Detail",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers/{{transfer_id}}",
+        "description": "Read current state as an account owner or admin; replay bodies remain original snapshots.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ask Statement",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/users/{{user_id}}/statement/ask",
+        "description": "Answer one of four supported questions from posted movements in the user's own wallets.\n\nDates are inclusive UTC dates. Values are gross posted movements, including top-ups and\nreversals; counts deduplicate transfers touching two of the same user's wallets.\nAt most 1000 contributing movements; narrow wider results. No ledger rows reach the\nstatement-intent provider. The default provider is an offline mock, not a learned model.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"question\": \"How many transfers from 2026-01-01 to 2026-12-31?\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Verify final sender balance",
       "request": {
         "method": "GET",
@@ -1024,6 +1113,499 @@
               "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
               "    .to.be.a(\"string\").and.not.empty);",
               "pm.test(\"Final balance\", () => pm.expect(pm.response.json().balance).to.eql(24150));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Risk Rules",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/risk-rules",
+        "description": "Risk Rules",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "const rule = pm.response.json().items.find(r => r.rule_type === \"amount\");",
+              "pm.collectionVariables.set(\"rule_id\", rule.id);",
+              "pm.collectionVariables.set(\"original_rule\", JSON.stringify({threshold: rule.threshold,",
+              " window_seconds: rule.window_seconds, action: rule.action, enabled: rule.enabled}));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update Risk Rule",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/risk-rules/{{rule_id}}",
+        "description": "Change thresholds/actions and save an actor-attributed configuration event.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"threshold\": 500, \"window_seconds\": null, \"action\": \"hold\", \"enabled\": true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create held peer payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers",
+        "description": "Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.\n\nAmounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need\nsource_account_id; peer needs both. System endpoints are resolved by the server.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"peer\",\n  \"source_account_id\": {{wallet_id}},\n  \"amount\": 1000,\n  \"destination_account_id\": {{recipient_wallet_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"transfer_id\", pm.response.json().id);",
+              "}",
+              "pm.collectionVariables.set(\"peer_response\", pm.response.text());",
+              "pm.test(\"Held without posting\", () => pm.expect(pm.response.json().status).to.eql(\"held\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Held Transfers",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/transfers/held",
+        "description": "Held Transfers",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transfer Flags",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/transfers/{{transfer_id}}/risk-flags",
+        "description": "Transfer Flags",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Explain Flags",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/risk-flags/explain",
+        "description": "Generate advisory explanations; never change money or transfer status.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"limit\": 10\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Release Transfer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/transfers/{{transfer_id}}/release",
+        "description": "Admin releases an existing hold after rechecking funds. Rules are explicitly overridden.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reason\": \"Verified with wallet owner\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create held peer payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/transfers",
+        "description": "Post a peer payment or withdrawal from an owned wallet. Admins may top up or charge fees.\n\nAmounts are integer paise. Top-up needs destination_account_id; withdrawal and fee need\nsource_account_id; peer needs both. System endpoints are resolved by the server.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"peer\",\n  \"source_account_id\": {{wallet_id}},\n  \"amount\": 1000,\n  \"destination_account_id\": {{recipient_wallet_id}}\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set(\"transfer_id\", pm.response.json().id);",
+              "}",
+              "pm.collectionVariables.set(\"peer_response\", pm.response.text());",
+              "pm.test(\"Held without posting\", () => pm.expect(pm.response.json().status).to.eql(\"held\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject Transfer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/transfers/{{transfer_id}}/reject",
+        "description": "Admin rejects a hold without creating entries or changing balances.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reason\": \"Verified with wallet owner\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restore amount rule",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/admin/risk-rules/{{rule_id}}",
+        "description": "Change thresholds/actions and save an actor-attributed configuration event.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{original_rule}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);"
             ]
           }
         }

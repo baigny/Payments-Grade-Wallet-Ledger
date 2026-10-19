@@ -68,6 +68,9 @@ def api(monkeypatch, schema_name):
             "INSERT INTO users (name, email, phone, role) "
             "VALUES ('Admin', 'admin@example.test', '+919000000001', 'admin') RETURNING id"
         ).fetchone()[0]
+        # Existing money-path scenarios keep rules active with non-triggering thresholds.
+        # Fraud tests explicitly configure boundary/hold behavior in their own schema.
+        conn.execute("UPDATE risk_rules SET threshold = 9223372036854775807")
         conn.execute(
             "INSERT INTO auth_tokens (user_id, token_hash) VALUES (%s, %s)",
             (user_id, token_hash(token)),

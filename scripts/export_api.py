@@ -24,6 +24,15 @@ ORDER = {
     ("get", "/admin/reconciliation/runs/{run_id}"): 10,
     ("get", "/admin/reconciliation/runs/{run_id}/findings"): 11,
     ("get", "/admin/reconciliation/runs/{run_id}/problems"): 12,
+    ("get", "/transfers/{transfer_id}"): 13,
+    ("get", "/admin/risk-rules"): 14,
+    ("post", "/admin/risk-rules/{rule_id}"): 15,
+    ("get", "/admin/transfers/held"): 16,
+    ("get", "/admin/transfers/{transfer_id}/risk-flags"): 17,
+    ("post", "/admin/transfers/{transfer_id}/release"): 18,
+    ("post", "/admin/transfers/{transfer_id}/reject"): 19,
+    ("post", "/admin/risk-flags/explain"): 20,
+    ("post", "/users/{user_id}/statement/ask"): 21,
 }
 
 
@@ -134,6 +143,8 @@ def artifacts():
     items = [postman_item(spec, *operation) for operation in operations]
     if "/transfers" in spec["paths"]:
         items = transfer_demo(items)
+    if "/admin/risk-rules" in spec["paths"]:
+        items = fraud_demo(items)
     collection = {
         "info": {
             "name": "Wallet Ledger",
@@ -285,6 +296,66 @@ def transfer_demo(items):
 
 def serialized(value):
     return json.dumps(value, indent=2, ensure_ascii=False) + "\n"
+
+
+def fraud_demo(items):
+    templates = {item["request"]["url"].removeprefix("{{base_url}}"): item for item in items}
+    result = [
+        item
+        for item in items
+        if not item["request"]["url"].startswith(
+            (
+                "{{base_url}}/admin/risk-rules",
+                "{{base_url}}/admin/transfers/",
+                "{{base_url}}/admin/risk-flags/explain",
+            )
+        )
+    ]
+    rules = copy.deepcopy(templates["/admin/risk-rules"])
+    rules["event"][0]["script"]["exec"] += [
+        'const rule = pm.response.json().items.find(r => r.rule_type === "amount");',
+        'pm.collectionVariables.set("rule_id", rule.id);',
+        'pm.collectionVariables.set("original_rule", JSON.stringify({threshold: rule.threshold,',
+        " window_seconds: rule.window_seconds, action: rule.action, enabled: rule.enabled}));",
+    ]
+    update = copy.deepcopy(templates["/admin/risk-rules/{{rule_id}}"])
+    update["request"]["body"]["raw"] = json.dumps(
+        {
+            "threshold": 500,
+            "window_seconds": None,
+            "action": "hold",
+            "enabled": True,
+        }
+    )
+    create = copy.deepcopy(next(item for item in items if item["name"] == "Post peer"))
+    create["name"] = "Create held peer payment"
+    create["request"]["header"] = [
+        h if h["key"] != "Idempotency-Key" else {"key": "Idempotency-Key", "value": "{{$guid}}"}
+        for h in create["request"]["header"]
+    ]
+    create["event"] = [copy.deepcopy(create["event"][-1])]
+    create["event"][0]["script"]["exec"].append(
+        'pm.test("Held without posting", () => '
+        'pm.expect(pm.response.json().status).to.eql("held"));'
+    )
+    release = copy.deepcopy(templates["/admin/transfers/{{transfer_id}}/release"])
+    reject = copy.deepcopy(templates["/admin/transfers/{{transfer_id}}/reject"])
+    restore = copy.deepcopy(update)
+    restore["name"] = "Restore amount rule"
+    restore["request"]["body"]["raw"] = "{{original_rule}}"
+    result += [
+        rules,
+        update,
+        create,
+        templates["/admin/transfers/held"],
+        templates["/admin/transfers/{{transfer_id}}/risk-flags"],
+        templates["/admin/risk-flags/explain"],
+        release,
+        copy.deepcopy(create),
+        reject,
+        restore,
+    ]
+    return result
 
 
 def main():

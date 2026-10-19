@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Wallet Ledger",
-    version="0.4.0",
+    version="0.5.0",
     description=(
         "INR wallet backend with bearer authentication and explicit SQL. "
         "Every POST requires a UUID Idempotency-Key, scoped to the authenticated caller. "
@@ -34,6 +34,11 @@ app = FastAPI(
         {"name": "Users", "description": "Administrator-managed user creation."},
         {"name": "Wallets", "description": "Wallet ownership, balances and statements."},
         {"name": "Transfers", "description": "Atomic, double-entry money movements."},
+        {"name": "Fraud", "description": "Database rules and explicit admin review of holds."},
+        {
+            "name": "Statement questions",
+            "description": "Validated intent and ledger-backed answers.",
+        },
         {"name": "Reconciliation", "description": "Admin-only integrity checks and saved reports."},
     ],
     responses={status: {"model": ErrorResponse} for status in (400, 401, 403, 404, 409, 422, 503)},

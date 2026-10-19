@@ -1,0 +1,12 @@
+[
+  {"question":"Total sent to Rahul from 2026-08-01 to 2026-08-31","value":3000,"ids":["sent1","sent2"]},
+  {"question":"Total received from 2026-08-01 to 2026-08-31","value":10500,"ids":["fund","received"]},
+  {"question":"Largest transfer from 2026-08-01 to 2026-08-31","value":10000,"ids":["fund"]},
+  {"question":"Number of transfers from 2026-08-01 to 2026-08-31","value":6,"ids":["fund","sent1","sent2","received","withdrawal","fee"]},
+  {"question":"Total sent to Rahul from 2026-08-01 to 2026-08-05","value":1000,"ids":["sent1"]},
+  {"question":"Total received from 2026-08-15 to 2026-08-15","value":500,"ids":["received"]},
+  {"question":"Biggest transfer from 2026-08-05 to 2026-08-31","value":2000,"ids":["sent2"]},
+  {"question":"Count transfers from 2026-08-10 to 2026-08-20","value":4,"ids":["sent2","received","withdrawal","fee"]},
+  {"question":"Total sent to Maya from 2026-08-01 to 2026-08-31","value":0,"ids":[]},
+  {"question":"Total received from 2026-09-01 to 2026-09-30","value":0,"ids":[]}
+]

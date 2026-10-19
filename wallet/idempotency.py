@@ -74,7 +74,7 @@ def _execute(actor, key, request, model, operation, body, configure):
                 # Roll back domain failures before storing their stable response on the key.
                 with conn.transaction():
                     result = operation(conn)
-                    body = model.model_validate(result).model_dump(mode="json")
+                    body = model.model_validate(result).model_dump(mode="json", by_alias=True)
                     status = 201
             except DomainError as exc:
                 if exc.status >= 500 or not exc.cacheable:

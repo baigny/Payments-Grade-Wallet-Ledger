@@ -13,6 +13,7 @@ COPY migrations ./migrations
 COPY tests ./tests
 COPY scripts ./scripts
 COPY docs/api ./docs/api
+COPY docs/statement-questions.json ./docs/statement-questions.json
 COPY postman ./postman
 RUN useradd --create-home wallet
 USER wallet
