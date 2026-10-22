@@ -89,3 +89,34 @@ other applications, different endpoint aliases/models, account-specific limits
 or capacity restrictions can still cause 429. All replicas must share the same
 database/schema and quota settings for coordinated admission. No unbounded queue,
 sleep inside a payment transaction, or paid provider fallback is used.
+
+## Errors and recovery
+
+Errors keep the API shape `{code, message, request_id}`. Provider failures use
+503 because client authentication can still be valid when the external service
+fails. Raw provider bodies, endpoint credentials and API keys are never returned.
+
+| Code | Meaning | Recovery |
+| --- | --- | --- |
+| `LLM_BUSY` | Local allowance exhausted or provider cooldown active | Wait for `Retry-After`, then retry the same idempotency key |
+| `LLM_NOT_CONFIGURED` | Hosted credentials/model/endpoint missing | Operator configures the ignored environment and recreates API/worker |
+| `LLM_INVALID_CONFIGURATION` | Invalid mode, URL or quota settings | Operator fixes configuration; restarting alone does not fix it |
+| `LLM_AUTH_FAILED` | Provider rejected server credentials/access | Operator checks the key and provider permissions; client should not replace its wallet bearer token |
+| `LLM_MODEL_UNAVAILABLE` | Configured provider endpoint/model returned 404 | Operator checks endpoint/model availability |
+| `LLM_TIMEOUT` | Provider did not finish within the timeout | Retry the same key; inspect repeated failures using request IDs |
+| `LLM_INVALID_RESPONSE` | Incomplete, refused, malformed or oversized provider reply | Retry conservatively; operator checks provider compatibility if persistent |
+| `LLM_UNAVAILABLE` | Connection failure or other unsuccessful provider response | Retry later with the same key; check provider availability |
+
+Existing domain errors remain distinct: invalid/unsupported statement intent is
+422 `UNSUPPORTED_QUESTION`; an invalid advisory explanation is 503
+`INVALID_EXPLANATION`. Permission and input failures occur before provider calls.
+A 503 rolls back the question/explanation batch and its idempotency claim. It does
+not roll back quota already consumed by an external request. Held money remains
+held; a nightly explanation failure does not undo saved reconciliation results.
+
+Tests cover concurrent reservations, each request/token window, window expiry,
+actual usage, malformed Retry-After, shared cooldown after one upstream 429,
+retry after local exhaustion and exact replay without another provider call.
+Transport tests separately cover credential errors, timeout, malformed/truncated
+content and configuration errors. These tests use mocks or loopback HTTP, with
+real PostgreSQL for admission and API behavior; they do not consume Groq quota.

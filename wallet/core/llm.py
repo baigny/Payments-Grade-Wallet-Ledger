@@ -91,6 +91,8 @@ class HostedProvider:
                 {"role": "user", "content": json.dumps(data)},
             ],
         }
+        # UTF-8 bytes deliberately overestimate input tokens; include output and framing.
+        # Reservation commits independently, even if the caller's transaction later rolls back.
         ticket = llm_budget.reserve(base_url, model, len(json.dumps(payload).encode()) + 2176)
         try:
             with httpx.Client(timeout=10, follow_redirects=False) as client:
@@ -117,15 +119,38 @@ class HostedProvider:
                 raise ValueError("Invalid provider content")
             llm_budget.complete(ticket, result.get("usage", {}).get("total_tokens"))
             return content
-        except (
-            httpx.HTTPError,
-            ValueError,
-            KeyError,
-            TypeError,
-            IndexError,
-            AttributeError,
-        ) as exc:
+        except httpx.TimeoutException as exc:
+            raise DomainError(
+                "LLM_TIMEOUT",
+                "Language provider timed out; retry with the same idempotency key",
+                503,
+                cacheable=False,
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (401, 403):
+                raise DomainError(
+                    "LLM_AUTH_FAILED",
+                    "Language provider authentication failed; contact the operator",
+                    503,
+                    cacheable=False,
+                ) from exc
+            if exc.response.status_code == 404:
+                raise DomainError(
+                    "LLM_MODEL_UNAVAILABLE",
+                    "Configured language model or endpoint is unavailable",
+                    503,
+                    cacheable=False,
+                ) from exc
             raise DomainError("LLM_UNAVAILABLE", "Language provider is unavailable", 503) from exc
+        except httpx.HTTPError as exc:
+            raise DomainError("LLM_UNAVAILABLE", "Language provider is unavailable", 503) from exc
+        except (ValueError, KeyError, TypeError, IndexError, AttributeError) as exc:
+            raise DomainError(
+                "LLM_INVALID_RESPONSE",
+                "Language provider returned an invalid or incomplete response",
+                503,
+                cacheable=False,
+            ) from exc
 
 
 def provider() -> Provider:
@@ -136,8 +161,16 @@ def provider() -> Provider:
         if not all(
             os.getenv(key, "").strip() for key in ("LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY")
         ):
-            raise DomainError("LLM_UNAVAILABLE", "Language provider is not configured", 503)
-        url = urlsplit(os.environ["LLM_BASE_URL"])
+            raise DomainError("LLM_NOT_CONFIGURED", "Language provider is not configured", 503)
+        try:
+            url = urlsplit(os.environ["LLM_BASE_URL"])
+            _ = url.port  # Validate port and bracket syntax without exposing the URL.
+        except ValueError as exc:
+            raise DomainError(
+                "LLM_INVALID_CONFIGURATION",
+                "Language provider URL is invalid",
+                503,
+            ) from exc
         if (
             url.username
             or url.password
@@ -149,6 +182,6 @@ def provider() -> Provider:
                 and not (url.scheme == "http" and url.hostname in ("127.0.0.1", "localhost", "::1"))
             )
         ):
-            raise DomainError("LLM_UNAVAILABLE", "Language provider URL is invalid", 503)
+            raise DomainError("LLM_INVALID_CONFIGURATION", "Language provider URL is invalid", 503)
         return HostedProvider()
-    raise DomainError("LLM_UNAVAILABLE", "Language provider is not configured", 503)
+    raise DomainError("LLM_INVALID_CONFIGURATION", "Language provider mode is invalid", 503)

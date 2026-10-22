@@ -91,6 +91,7 @@ def test_ten_sample_questions_match_ledger_answers(api, statement_data, sample):
         "not JSON",
         '{"type":5,"from":"2026-08-01","to":"2026-08-31"}',
         '{"type":4,"from":"2026-08-31","to":"2026-08-01"}',
+        '{"type":4,"from":"2026-02-30","to":"2026-03-01"}',
         '{"type":4,"from":"2026-08-01","to":"2026-08-31","user_id":999}',
         '{"type":true,"from":"2026-08-01","to":"2026-08-31"}',
         '{"type":4,"from":"2026-08-01","to":"2026-08-31","sql":"SELECT * FROM users"}',
@@ -135,6 +136,18 @@ def test_question_replay_does_not_call_provider_again(api, statement_data, monke
     assert first.content == repeated.content
     assert len(mock.calls) == 1
     assert set(first.json()["query"]) == {"type", "counterparty", "from", "to"}
+
+
+def test_sql_looking_counterparty_is_a_literal_not_a_query(api, statement_data, monkeypatch):
+    user, _ = statement_data
+    output = json.dumps(
+        {"type": 1, "counterparty": "nobody' OR 1=1 --", "from": "2026-08-01", "to": "2026-08-31"}
+    )
+    monkeypatch.setattr(llm, "provider", lambda: llm.MockProvider(output))
+    response = ask(api, user, "Total sent to this exact name")
+    assert response.status_code == 201
+    assert response.json()["value"] == 0
+    assert response.json()["transfer_ids"] == []
 
 
 def test_other_users_statement_is_forbidden_before_provider_call(api, monkeypatch):

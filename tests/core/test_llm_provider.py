@@ -57,6 +57,9 @@ def test_hosted_adapter_uses_schema_and_treats_question_as_data(monkeypatch):
     "response",
     [
         httpx.Response(500),
+        httpx.Response(401, text="test-secret"),
+        httpx.Response(403, text="test-secret"),
+        httpx.Response(404, text="test-secret"),
         httpx.Response(429, text="test-secret"),
         httpx.Response(200, json={"choices": []}),
         httpx.Response(200, json={"choices": [{"finish_reason": "length"}]}),
@@ -88,6 +91,14 @@ def test_provider_errors_are_bounded_and_safe(monkeypatch, response):
     assert caught.value.status == 503
     assert "provider.test" not in caught.value.message
     assert "test-secret" not in caught.value.message
+    expected = {
+        500: "LLM_UNAVAILABLE",
+        401: "LLM_AUTH_FAILED",
+        403: "LLM_AUTH_FAILED",
+        404: "LLM_MODEL_UNAVAILABLE",
+        429: "LLM_BUSY",
+    }
+    assert caught.value.code == expected.get(response.status_code, "LLM_INVALID_RESPONSE")
 
 
 def test_offline_last_month_handles_leap_year():
@@ -106,7 +117,13 @@ def test_offline_last_month_handles_leap_year():
 
 @pytest.mark.parametrize(
     "url",
-    ["http://remote.test/v1", "https://user:secret@api.test/v1", "https://api.test/v1?key=secret"],
+    [
+        "http://remote.test/v1",
+        "https://user:secret@api.test/v1",
+        "https://api.test/v1?key=secret",
+        "https://api.test:invalid/v1",
+        "https://[invalid/v1",
+    ],
 )
 def test_hosted_provider_rejects_unsafe_configuration(monkeypatch, url):
     monkeypatch.setenv("LLM_PROVIDER", "hosted")
@@ -117,6 +134,7 @@ def test_hosted_provider_rejects_unsafe_configuration(monkeypatch, url):
         llm.provider()
     assert caught.value.status == 503
     assert "secret" not in caught.value.message
+    assert caught.value.code == "LLM_INVALID_CONFIGURATION"
 
 
 def test_hosted_provider_requires_key(monkeypatch):
@@ -125,6 +143,7 @@ def test_hosted_provider_requires_key(monkeypatch):
     with pytest.raises(DomainError) as caught:
         llm.provider()
     assert caught.value.status == 503
+    assert caught.value.code == "LLM_NOT_CONFIGURED"
 
 
 def test_hosted_timeout_does_not_expose_credentials(monkeypatch):
@@ -144,16 +163,18 @@ def test_hosted_timeout_does_not_expose_credentials(monkeypatch):
         llm.provider().generate("statement_question", {}, {})
     assert caught.value.status == 503
     assert "secret" not in caught.value.message
+    assert caught.value.code == "LLM_TIMEOUT"
 
 
-def test_explanation_failure_does_not_undo_nightly_reconciliation(monkeypatch):
+@pytest.mark.parametrize("code", ["LLM_UNAVAILABLE", "LLM_BUSY"])
+def test_explanation_failure_does_not_undo_nightly_reconciliation(monkeypatch, code):
     report = {"id": 1, "status": "passed"}
     monkeypatch.setattr(worker.reconciliation, "execute", lambda *args: report)
     calls = []
 
     def fail(limit, cutoff):
         calls.append((limit, cutoff))
-        raise DomainError("LLM_UNAVAILABLE", "Unavailable", 503)
+        raise DomainError(code, "Unavailable", 503)
 
     monkeypatch.setattr(worker.explanations, "execute", fail)
     assert worker.tick(datetime(2026, 8, 2, 3, tzinfo=UTC), 2, 0) == report
