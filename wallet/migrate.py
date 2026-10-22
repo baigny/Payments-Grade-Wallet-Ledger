@@ -48,6 +48,7 @@ def provision_app_role(conn):
         conn.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO wallet_app")
         conn.execute("REVOKE INSERT, UPDATE ON schema_migrations FROM wallet_app")
         conn.execute("REVOKE INSERT ON job_locks FROM wallet_app")
+        conn.execute("GRANT DELETE ON llm_requests TO wallet_app")
         conn.execute("REVOKE UPDATE ON ledger_entries, transfer_status_events FROM wallet_app")
 
 

@@ -53,3 +53,39 @@ Manual explanation requests retain their explicit limit and may exhaust quotas.
 The former skipped check required an installed local model and failed memory
 allocation on this machine. That project integration has been removed; no machine
 installation or downloaded model is deleted.
+
+## Quotas and cooldowns
+
+API replicas and the worker share PostgreSQL quota reservations, keyed by the
+configured endpoint and model, across rolling one-minute and 24-hour windows.
+`LLM_REQUESTS_PER_MINUTE`, `LLM_REQUESTS_PER_DAY`, `LLM_TOKENS_PER_MINUTE` and
+`LLM_TOKENS_PER_DAY` default to 30, 1000, 8000 and 200000. Check your account's
+actual limits and lower these settings when needed. The mock bypasses this gate.
+
+Before sending a request, the adapter reserves input UTF-8 byte length plus
+output allowance and framing. This deliberately overestimates tokens and can
+reject a large prompt that the provider might accept. Successful responses
+replace the reservation with reported usage. Missing/failed usage retains the
+full reservation. Failed calls consume reservations, and completed idempotency
+replays do not call the provider again. Expired reservations are pruned on the
+next admitted call for that endpoint/model.
+
+Reservations commit independently of the caller's transaction: rolling back a
+question or explanation must not erase already consumed external quota. Budget
+locks are short and released before HTTP calls; admission has a 250ms lock wait
+and a two-second SQL statement timeout. The existing caller transaction still
+spans the model call; moving inference fully outside transactions is future work.
+
+Budget exhaustion returns the standard `503 LLM_BUSY` error with `Retry-After`.
+An upstream 429 creates a shared cooldown using its Retry-After header (seconds
+or HTTP date, bounded to one day, default 60 seconds). It is not forwarded as 429
+and is not retried automatically. Retry with the same idempotency key after the
+cooldown; this infrastructure failure is not saved as a completed response.
+Nightly failures leave reconciliation committed and the explanation pending.
+
+This reduces calls that would exceed our configured allowance; it cannot
+guarantee the provider never throttles. Groq limits are organization-wide, so
+other applications, different endpoint aliases/models, account-specific limits
+or capacity restrictions can still cause 429. All replicas must share the same
+database/schema and quota settings for coordinated admission. No unbounded queue,
+sleep inside a payment transaction, or paid provider fallback is used.

@@ -1047,7 +1047,7 @@
           }
         ],
         "url": "{{base_url}}/users/{{user_id}}/statement/ask",
-        "description": "Answer one of four supported questions from posted movements in the user's own wallets.\n\nDates are inclusive UTC dates. Values are gross posted movements, including top-ups and\nreversals; counts deduplicate transfers touching two of the same user's wallets.\nAt most 1000 contributing movements; narrow wider results. No ledger rows reach the\nstatement-intent provider. The default provider is an offline mock, not a learned model.",
+        "description": "Answer one of four supported questions from posted movements in the user's own wallets.\n\nDates are inclusive UTC dates. Values are gross posted movements, including top-ups and\nreversals; counts deduplicate transfers touching two of the same user's wallets.\nAt most 1000 contributing movements; narrow wider results. No ledger rows reach the\nstatement-intent provider. The default provider is an offline mock, not a learned model.\nHosted quota exhaustion returns 503 LLM_BUSY with Retry-After. Retry using the same key;\ninfrastructure failures are not saved as completed idempotent responses.",
         "auth": {
           "type": "bearer",
           "bearer": [
@@ -1399,7 +1399,7 @@
           }
         ],
         "url": "{{base_url}}/admin/risk-flags/explain",
-        "description": "Generate advisory explanations; never change money or transfer status.",
+        "description": "Generate advisory explanations; never change money or transfer status.\n\nHosted quota exhaustion returns 503 LLM_BUSY with Retry-After. The batch rolls back;\nretry with the same key and a small limit after the cooldown.",
         "auth": {
           "type": "bearer",
           "bearer": [

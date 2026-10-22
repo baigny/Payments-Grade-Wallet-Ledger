@@ -19,6 +19,7 @@ wallet/
     errors.py             shared domain exception
     idempotency.py        request transaction, savepoints and exact replay
     llm.py                mock and hosted provider interface
+    llm_budget.py         shared quota reservations and provider cooldowns
     schemas.py            shared validation types and error response
   users/
     router.py             user creation endpoint

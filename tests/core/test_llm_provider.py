@@ -10,6 +10,18 @@ from wallet.core.errors import DomainError
 from wallet.statements.schemas import QuestionSpec
 
 
+@pytest.fixture(autouse=True)
+def budget_protocol(monkeypatch):
+    # Database admission is covered with concurrent PostgreSQL tests separately.
+    monkeypatch.setattr(llm.llm_budget, "reserve", lambda *args: (1, 1))
+    monkeypatch.setattr(llm.llm_budget, "complete", lambda *args: None)
+    monkeypatch.setattr(
+        llm.llm_budget,
+        "block",
+        lambda _, value: llm.llm_budget.unavailable(llm.llm_budget.retry_seconds(value)),
+    )
+
+
 def test_hosted_adapter_uses_schema_and_treats_question_as_data(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "hosted")
     monkeypatch.setenv("LLM_API_KEY", "test-secret")

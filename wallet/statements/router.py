@@ -68,6 +68,8 @@ def ask_statement(
     reversals; counts deduplicate transfers touching two of the same user's wallets.
     At most 1000 contributing movements; narrow wider results. No ledger rows reach the
     statement-intent provider. The default provider is an offline mock, not a learned model.
+    Hosted quota exhaustion returns 503 LLM_BUSY with Retry-After. Retry using the same key;
+    infrastructure failures are not saved as completed idempotent responses.
     """
     authorize_owner(actor, user_id)
     return idempotency.execute(

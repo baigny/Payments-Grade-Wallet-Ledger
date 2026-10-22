@@ -262,6 +262,10 @@ flow through a loopback HTTP protocol fixture. A separate explicit command uses
 the real hosted model; fixture success is not a claim of live model success.
 The [recorded Groq check](docs/evidence/hosted-llm.json) passed all four answers
 and the explanation using synthetic data, with held money unchanged.
+API and worker share rolling request/token budgets in PostgreSQL. Quota
+exhaustion or provider throttling returns `503 LLM_BUSY` with `Retry-After`,
+without saving an idempotent failure or automatically retrying the model call.
+See [quota settings and limitations](docs/live-llm.md#quotas-and-cooldowns).
 
 The nightly worker explains eligible risk flags using the rule snapshot and that
 wallet's last ten prior transfers. It saves two sentences and an advisory label.

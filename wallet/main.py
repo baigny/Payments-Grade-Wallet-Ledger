@@ -41,7 +41,24 @@ app = FastAPI(
         },
         {"name": "Reconciliation", "description": "Admin-only integrity checks and saved reports."},
     ],
-    responses={status: {"model": ErrorResponse} for status in (400, 401, 403, 404, 409, 422, 503)},
+    responses={
+        status: {
+            "model": ErrorResponse,
+            **(
+                {
+                    "headers": {
+                        "Retry-After": {
+                            "description": "Seconds before retrying a busy hosted-provider quota",
+                            "schema": {"type": "integer", "minimum": 1},
+                        }
+                    }
+                }
+                if status == 503
+                else {}
+            ),
+        }
+        for status in (400, 401, 403, 404, 409, 422, 503)
+    },
 )
 
 
@@ -67,7 +84,10 @@ def error_response(request: Request, status: int, code: str, message: str):
 
 @app.exception_handler(DomainError)
 async def domain_error(request: Request, exc: DomainError):
-    return error_response(request, exc.status, exc.code, exc.message)
+    response = error_response(request, exc.status, exc.code, exc.message)
+    if exc.retry_after is not None:
+        response.headers["Retry-After"] = str(exc.retry_after)
+    return response
 
 
 @app.exception_handler(RequestValidationError)

@@ -1,5 +1,5 @@
 {
-  "completed_at": "2026-10-22T14:46:15.048925+00:00",
+  "completed_at": "2026-10-22T15:20:32.011727+00:00",
   "provider": "hosted",
   "model": "openai/gpt-oss-20b",
   "questions": [
@@ -24,7 +24,7 @@
       "contributing_rows": 3
     }
   ],
-  "explanation_label": "review",
+  "explanation_label": "likely_fraud",
   "held_money_unchanged": true,
   "scope": "ASGI HTTP, PostgreSQL, hosted model; synthetic scratch data"
 }

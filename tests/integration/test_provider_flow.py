@@ -35,7 +35,10 @@ def language_provider(monkeypatch):
             task = "statement_question" if "question" in data else "explain_flag"
             content = MockProvider().generate(task, data, {})
             payload = json.dumps(
-                {"choices": [{"finish_reason": "stop", "message": {"content": content}}]}
+                {
+                    "choices": [{"finish_reason": "stop", "message": {"content": content}}],
+                    "usage": {"total_tokens": 128},
+                }
             ).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")

@@ -1,5 +1,19 @@
 # Schema design
 
+Hosted model admission adds two operational entities in migration 0008:
+`llm_budgets` (unique endpoint/model scope hash and cooldown) and `llm_requests`
+(reservation time and token allowance). Both use generated BIGINT primary keys.
+One budget has many request reservations through `budget_id`; neither contains
+prompts, customer rows or credentials. The `(budget_id, created_at)` index supports
+rolling-window counts and pruning at the cost of one index write per model call.
+The runtime role may delete expired reservations but cannot delete money records.
+These controls do not participate in double-entry accounting.
+
+```mermaid
+erDiagram
+    llm_budgets ||--o{ llm_requests : reserves
+```
+
 ## Noun inventory
 
 | Requirement noun | Storage decision |

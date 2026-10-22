@@ -32,7 +32,11 @@ router = APIRouter()
     tags=["Fraud"],
 )
 def explain_flags(data: ExplanationRequest, request: Request, actor: CurrentActor, key: WriteKey):
-    """Generate advisory explanations; never change money or transfer status."""
+    """Generate advisory explanations; never change money or transfer status.
+
+    Hosted quota exhaustion returns 503 LLM_BUSY with Retry-After. The batch rolls back;
+    retry with the same key and a small limit after the cooldown.
+    """
     require_admin(actor)
     return idempotency.execute(
         actor,

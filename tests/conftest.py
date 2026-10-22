@@ -87,6 +87,7 @@ def api(monkeypatch, schema_name):
             )
         )
         conn.execute("REVOKE UPDATE ON ledger_entries, transfer_status_events FROM wallet_app")
+        conn.execute("GRANT DELETE ON llm_requests TO wallet_app")
         conn.execute("REVOKE INSERT, UPDATE ON schema_migrations FROM wallet_app")
 
     def owner(**kwargs):

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from wallet.core import llm_budget
 from wallet.core.errors import DomainError
 
 
@@ -90,6 +91,7 @@ class HostedProvider:
                 {"role": "user", "content": json.dumps(data)},
             ],
         }
+        ticket = llm_budget.reserve(base_url, model, len(json.dumps(payload).encode()) + 2176)
         try:
             with httpx.Client(timeout=10, follow_redirects=False) as client:
                 with client.stream(
@@ -98,18 +100,22 @@ class HostedProvider:
                     json=payload,
                     headers={"Authorization": "Bearer " + os.environ["LLM_API_KEY"]},
                 ) as response:
+                    if response.status_code == 429:
+                        raise llm_budget.block(ticket, response.headers.get("retry-after"))
                     response.raise_for_status()
                     chunks = bytearray()
                     for chunk in response.iter_bytes():
                         chunks.extend(chunk)
                         if len(chunks) > 65536:
                             raise ValueError("Provider response exceeds limit")
-            choice = json.loads(chunks)["choices"][0]
+            result = json.loads(chunks)
+            choice = result["choices"][0]
             if choice["finish_reason"] != "stop" or choice["message"].get("refusal"):
                 raise ValueError("Incomplete or refused provider response")
             content = choice["message"]["content"]
             if not isinstance(content, str) or len(content) > 8192:
                 raise ValueError("Invalid provider content")
+            llm_budget.complete(ticket, result.get("usage", {}).get("total_tokens"))
             return content
         except (
             httpx.HTTPError,
