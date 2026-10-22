@@ -196,7 +196,7 @@ connectivity and the presence of the account schema. Every response includes an
 `X-Request-ID` header.
 
 ```sh
-pytest tests/test_health.py -q
+pytest tests/core/test_health.py -q
 ruff check wallet tests scripts
 ```
 

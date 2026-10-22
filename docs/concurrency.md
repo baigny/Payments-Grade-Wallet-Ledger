@@ -48,8 +48,8 @@ roll back together.
 ## Reproduce
 
 ```sh
-docker compose --profile test run --build --rm test pytest tests/test_concurrency.py -q -s
-docker compose --profile test run --rm test pytest tests/test_isolation.py -q
+docker compose --profile test run --build --rm test pytest tests/transfers/test_concurrency.py -q -s
+docker compose --profile test run --rm test pytest tests/database/test_isolation.py -q
 ```
 
 These tests create disposable schemas and remove them afterward. The two-session

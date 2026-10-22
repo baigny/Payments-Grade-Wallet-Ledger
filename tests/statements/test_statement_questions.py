@@ -4,10 +4,11 @@ from uuid import uuid4
 
 import pytest
 
+from tests.support.statements import ask
 from wallet.core import llm
 
 pytestmark = pytest.mark.database
-SAMPLES = json.loads((Path(__file__).parents[1] / "docs/statement-questions.json").read_text())
+SAMPLES = json.loads((Path(__file__).parents[2] / "docs/statement-questions.json").read_text())
 
 
 @pytest.fixture
@@ -73,16 +74,6 @@ def statement_data(api):
         "08-12",
     )
     return rhea, ids
-
-
-def ask(api, user, question, key=None):
-    return api.request(
-        "POST",
-        f"/users/{user['id']}/statement/ask",
-        token=user["token"],
-        key=str(key or uuid4()),
-        json={"question": question},
-    )
 
 
 @pytest.mark.parametrize("sample", SAMPLES, ids=[str(i + 1) for i in range(10)])

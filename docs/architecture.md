@@ -80,3 +80,35 @@ layer are unnecessary for this explicit-SQL design. Shared code belongs in `core
 only when several features use it. Feature-specific rules and models stay beside
 their endpoints. Public endpoint paths, validation, response shapes, SQL and
 database migrations are preserved by the restructuring.
+
+## Test structure
+
+Tests follow the same feature boundaries. Database invariants and cross-feature
+scenarios have dedicated packages:
+
+```text
+tests/
+  conftest.py             shared PostgreSQL schemas and API fixtures
+  support/                API client, data setup and assertion helpers
+  core/                   health, API contract, guards, idempotency and providers
+  users/                  user creation, token storage and admin bootstrap
+  wallets/                wallet creation, ownership and balances
+  transfers/              posting, reversals, stampedes and concurrency
+  fraud/                  holds, review and explanations
+  statements/             pages, summaries and statement questions
+  reconciliation/         reports, corruption detection and scheduling
+  database/               migrations, constraints, roles, seeds and isolation
+  integration/            cross-feature edge cases and opt-in real-model checks
+```
+
+`conftest.py` remains at the test root so its fixtures are available to every
+package. Reusable helpers belong in `support/`; test modules do not import other
+test modules. The opt-in real-model test remains skipped in normal offline runs.
+
+Run the whole suite with the existing command, or select one feature:
+
+```powershell
+docker compose --profile test run --build --rm test
+docker compose --profile test run --build --rm test pytest tests/transfers/ -q
+docker compose --profile test run --build --rm test pytest tests/statements/ -q
+```

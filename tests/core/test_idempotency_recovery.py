@@ -9,9 +9,9 @@ from uuid import uuid4
 import psycopg
 import pytest
 
-from tests.test_advanced_concurrency import assert_books_match
-from tests.test_idempotency import assert_replayed, payment, post
-from tests.test_transfers_api import setup_pair
+from tests.support.idempotency import assert_replayed, payment, post
+from tests.support.ledger import assert_books_match
+from tests.support.transfers import setup_pair
 from wallet.core.auth import token_hash
 from wallet.transfers import service as transfers
 

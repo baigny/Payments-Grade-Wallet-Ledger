@@ -14,7 +14,7 @@ $env:WALLET_LIVE_LLM = '1'
 $env:OLLAMA_BASE_URL = 'http://localhost:11434'
 $env:OLLAMA_MODEL = 'llama3.2:3b'
 $env:WALLET_LLM_EVIDENCE = 'docs/evidence/ollama-smoke.json'
-python -m pytest tests/test_live_llm.py -q
+python -m pytest tests/integration/test_live_llm.py -q
 ```
 
 Use an already installed model and warm it before running; the application keeps

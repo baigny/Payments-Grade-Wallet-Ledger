@@ -3,28 +3,10 @@ from uuid import uuid4
 
 import pytest
 
-from tests.test_transfers_api import setup_pair
+from tests.support.fraud import peer, rule
+from tests.support.transfers import setup_pair
 
 pytestmark = pytest.mark.database
-
-
-def rule(api, kind="amount", threshold=500, action="hold", window=None):
-    with api.owner() as conn:
-        conn.execute(
-            "UPDATE risk_rules SET threshold = %s, action = %s, window_seconds = %s "
-            "WHERE rule_type = %s",
-            (threshold, action, window, kind),
-        )
-
-
-def peer(api, actor, source, destination, amount=1000):
-    return api.transfer(
-        actor,
-        type="peer",
-        source_account_id=source["id"],
-        destination_account_id=destination["id"],
-        amount=amount,
-    )
 
 
 def review(api, transfer_id, action="release", key=None, token=None):

@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from tests.test_fraud import peer, rule
-from tests.test_transfers_api import setup_pair
+from tests.support.fraud import peer, rule
+from tests.support.transfers import setup_pair
 from wallet.core import llm
 
 pytestmark = pytest.mark.database

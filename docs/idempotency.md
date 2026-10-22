@@ -80,12 +80,12 @@ not make a promise about external payment providers, which are not called here.
 
 ## Verification
 
-`tests/test_idempotency.py` covers five sequential retries, ten parallel retries,
+`tests/core/test_idempotency.py` covers five sequential retries, ten parallel retries,
 changed amounts, exact response bytes, all POST resources and saved failures.
 The generated Postman collection includes a peer replay and a changed-amount
 rejection, followed by a final balance check.
 
-`tests/test_idempotency_recovery.py` adds transaction and deferred-commit fault
+`tests/core/test_idempotency_recovery.py` adds transaction and deferred-commit fault
 injection, waiting-claim rollback recovery, a bounded busy-key response,
 simultaneous different-body contenders, caller/resource/endpoint separation,
 revoked credentials and admin permission checks, new credentials for the same

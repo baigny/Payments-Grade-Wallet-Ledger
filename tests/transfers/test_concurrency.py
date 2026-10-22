@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from tests.test_transfers_api import setup_pair
+from tests.support.transfers import setup_pair
 
 pytestmark = pytest.mark.database
 

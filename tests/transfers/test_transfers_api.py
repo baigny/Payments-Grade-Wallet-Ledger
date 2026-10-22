@@ -1,13 +1,8 @@
 import pytest
 
+from tests.support.transfers import setup_pair
+
 pytestmark = pytest.mark.database
-
-
-def setup_pair(api, amount=50000):
-    sender, recipient = api.user("Nila"), api.user("Ishan")
-    source, destination = api.wallet(sender), api.wallet(recipient)
-    api.fund(source, amount)
-    return sender, recipient, source, destination
 
 
 def test_peer_transfer_updates_balances_ledger_and_actor(api):

@@ -3,10 +3,10 @@ from datetime import UTC, datetime, timedelta
 import psycopg
 import pytest
 
-from tests.test_fraud import peer, rule
-from tests.test_reconciliation import seed_postings
-from tests.test_statement_questions import ask
-from tests.test_transfers_api import setup_pair
+from tests.support.fraud import peer, rule
+from tests.support.reconciliation import seed_postings
+from tests.support.statements import ask
+from tests.support.transfers import setup_pair
 from wallet.core import llm
 from wallet.fraud import explanations
 

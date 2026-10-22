@@ -53,7 +53,7 @@ def wallets(db):
 
 @pytest.fixture
 def api(monkeypatch, schema_name):
-    from tests.api_helpers import API
+    from tests.support.api import API
     from wallet.core import db as database
     from wallet.core.auth import token_hash
 
