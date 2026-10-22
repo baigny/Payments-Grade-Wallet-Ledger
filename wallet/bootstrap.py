@@ -4,7 +4,7 @@ import argparse
 import json
 import secrets
 
-from wallet.core import db as db
+from wallet.core import db
 from wallet.core.auth import token_hash
 
 

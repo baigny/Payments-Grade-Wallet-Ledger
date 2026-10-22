@@ -18,6 +18,8 @@ Build an INR wallet backend where money movements are atomic, every debit has a 
 
 Create the application structure, configuration, Docker services, database connection, health checks, and CI. Make `docker compose up` start the application from a clean checkout.
 
+Group related routes, request/response schemas, and service functions into feature packages. Keep shared authentication, database access, errors, and provider interfaces in a core package.
+
 ### 2. Design the Schema
 
 Model users, wallet and system accounts, transfers, ledger entries, idempotency keys, audit events, risk rules, and reconciliation reports. Add migrations and document relationships in `docs/schema.md`.

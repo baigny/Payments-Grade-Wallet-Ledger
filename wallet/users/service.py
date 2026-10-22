@@ -2,10 +2,8 @@ import secrets
 
 import psycopg
 
-from wallet.core import db as db
 from wallet.core.auth import Actor, require_admin, token_hash
 from wallet.core.errors import DomainError
-from wallet.statements import pagination as pagination
 from wallet.users.schemas import UserCreate
 
 

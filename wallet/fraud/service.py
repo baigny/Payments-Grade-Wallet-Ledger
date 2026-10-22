@@ -3,7 +3,7 @@
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from wallet.core import db as db
+from wallet.core import db
 from wallet.core.errors import DomainError
 
 RULE_COLUMNS = "id, name, rule_type, threshold, window_seconds, action, enabled"

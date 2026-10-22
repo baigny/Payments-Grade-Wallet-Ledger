@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from wallet.core import db as db
+from wallet.core import db
 from wallet.core.errors import DomainError
 from wallet.transfers import service as transfers
 

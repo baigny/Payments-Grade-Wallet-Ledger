@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from wallet import worker
-from wallet.core import llm as llm
+from wallet.core import llm
 from wallet.core.errors import DomainError
 from wallet.statements.schemas import QuestionSpec
 

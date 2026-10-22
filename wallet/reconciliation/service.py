@@ -6,7 +6,7 @@ import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
 
-from wallet.core import db as db
+from wallet.core import db
 from wallet.core.errors import DomainError
 from wallet.reconciliation.queries import CHECKS, PROBLEMS
 

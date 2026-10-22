@@ -4,8 +4,7 @@ import psycopg
 from psycopg.rows import dict_row
 from pydantic import ValidationError
 
-from wallet.core import db as db
-from wallet.core import llm as llm
+from wallet.core import db, llm
 from wallet.core.errors import DomainError
 from wallet.fraud.schemas import FlagExplanation
 

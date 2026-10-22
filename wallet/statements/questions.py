@@ -5,7 +5,7 @@ from datetime import UTC, datetime, time, timedelta
 
 from pydantic import ValidationError
 
-from wallet.core import llm as llm
+from wallet.core import llm
 from wallet.core.auth import authorize_owner
 from wallet.core.errors import DomainError
 from wallet.statements.schemas import QuestionSpec

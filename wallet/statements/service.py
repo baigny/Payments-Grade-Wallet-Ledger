@@ -2,10 +2,10 @@ from datetime import UTC, date, datetime, time, timedelta
 
 from psycopg.rows import dict_row
 
-from wallet.core import db as db
+from wallet.core import db
 from wallet.core.auth import Actor
 from wallet.core.errors import DomainError
-from wallet.statements import pagination as pagination
+from wallet.statements import pagination
 from wallet.wallets.service import get_wallet
 
 

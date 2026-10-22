@@ -1,5 +1,10 @@
 # Wallet Ledger
 
+The application is grouped by feature: users, wallets, transfers, fraud,
+statements and reconciliation. Each feature owns its routes, request/response
+schemas and service functions. Shared infrastructure lives in `wallet/core/`.
+See [the package structure and Node.js terminology mapping](docs/architecture.md).
+
 An INR wallet backend using FastAPI, PostgreSQL 16, and explicit SQL.
 
 The backend includes the accounting schema, bearer authentication, user and wallet

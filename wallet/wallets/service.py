@@ -1,9 +1,8 @@
 from psycopg.rows import dict_row
 
-from wallet.core import db as db
+from wallet.core import db
 from wallet.core.auth import Actor, authorize_owner
 from wallet.core.errors import DomainError
-from wallet.statements import pagination as pagination
 
 WALLET_COLUMNS = "id, user_id, name, currency, balance"
 

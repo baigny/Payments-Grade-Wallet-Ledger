@@ -2,7 +2,7 @@
 
 import psycopg
 
-from wallet.core import db as db
+from wallet.core import db
 from wallet.core.auth import Actor, authorize_owner, require_admin
 from wallet.core.errors import DomainError
 from wallet.core.schemas import MAX_MONEY

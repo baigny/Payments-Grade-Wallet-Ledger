@@ -7,8 +7,8 @@ from tests.test_fraud import peer, rule
 from tests.test_reconciliation import seed_postings
 from tests.test_statement_questions import ask
 from tests.test_transfers_api import setup_pair
-from wallet.core import llm as llm
-from wallet.fraud import explanations as explanations
+from wallet.core import llm
+from wallet.fraud import explanations
 
 pytestmark = pytest.mark.database
 

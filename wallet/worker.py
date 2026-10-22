@@ -7,7 +7,7 @@ import threading
 from datetime import UTC, datetime, timedelta
 
 from wallet.core.errors import DomainError
-from wallet.fraud import explanations as explanations
+from wallet.fraud import explanations
 from wallet.reconciliation import service as reconciliation
 
 
