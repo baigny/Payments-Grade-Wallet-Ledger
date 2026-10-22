@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from psycopg import sql
 
-from wallet.db import connect
+from wallet.core.db import connect
 from wallet.migrate import migrate
 
 
@@ -54,8 +54,8 @@ def wallets(db):
 @pytest.fixture
 def api(monkeypatch, schema_name):
     from tests.api_helpers import API
-    from wallet import db as database
-    from wallet.auth import token_hash
+    from wallet.core import db as database
+    from wallet.core.auth import token_hash
 
     base_connect = database.connect
     name = "api_" + uuid4().hex

@@ -4,9 +4,10 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from wallet import llm, worker
-from wallet.errors import DomainError
-from wallet.models import QuestionSpec
+from wallet import worker
+from wallet.core import llm as llm
+from wallet.core.errors import DomainError
+from wallet.statements.schemas import QuestionSpec
 
 
 def test_ollama_adapter_uses_schema_and_treats_question_as_data(monkeypatch):

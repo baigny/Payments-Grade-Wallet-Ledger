@@ -6,8 +6,8 @@ from uuid import UUID
 from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from wallet import db
-from wallet.errors import DomainError
+from wallet.core import db as db
+from wallet.core.errors import DomainError
 
 bearer = HTTPBearer(auto_error=False)
 

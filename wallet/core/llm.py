@@ -8,7 +8,7 @@ from typing import Protocol
 
 import httpx
 
-from wallet.errors import DomainError
+from wallet.core.errors import DomainError
 
 
 class Provider(Protocol):

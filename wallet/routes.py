@@ -3,33 +3,37 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Path, Query, Request
 
-from wallet import accounts, explanations, fraud, idempotency, questions, reconciliation, transfers
-from wallet.auth import CurrentActor, WriteKey, authorize_owner, require_admin
-from wallet.models import (
-    MAX_MONEY,
-    TRANSFER_EXAMPLES,
+from wallet.core import idempotency as idempotency
+from wallet.core.auth import CurrentActor, WriteKey, authorize_owner, require_admin
+from wallet.core.schemas import MAX_MONEY
+from wallet.fraud import explanations as explanations
+from wallet.fraud import service as fraud
+from wallet.fraud.schemas import (
     ExplanationRequest,
     ExplanationResult,
     HeldTransfers,
-    ReconciliationFindings,
-    ReconciliationRun,
     ReviewDecision,
     RiskFlags,
     RiskRule,
     RiskRules,
     RiskRuleUpdate,
+)
+from wallet.reconciliation import service as reconciliation
+from wallet.reconciliation.schemas import ReconciliationFindings, ReconciliationRun
+from wallet.statements import questions as questions
+from wallet.statements import service as statements
+from wallet.statements.schemas import (
     StatementAnswer,
     StatementQuestion,
     StatementResponse,
     StatementSummary,
-    TransferCreate,
-    TransferResponse,
-    UserCreate,
-    UserCreated,
-    WalletCreate,
-    WalletList,
-    WalletResponse,
 )
+from wallet.transfers import service as transfers
+from wallet.transfers.schemas import TRANSFER_EXAMPLES, TransferCreate, TransferResponse
+from wallet.users import service as users
+from wallet.users.schemas import UserCreate, UserCreated
+from wallet.wallets import service as accounts
+from wallet.wallets.schemas import WalletCreate, WalletList, WalletResponse
 
 router = APIRouter()
 WRITE_RESPONSES = {
@@ -56,7 +60,7 @@ def create_user(data: UserCreate, request: Request, actor: CurrentActor, key: Wr
         key,
         request,
         UserCreated,
-        lambda conn: accounts.create_user(conn, actor, data),
+        lambda conn: users.create_user(conn, actor, data),
         data.model_dump(mode="json"),
     )
 
@@ -110,7 +114,7 @@ def statement(
     Offset remains available for numbered pages. Cursor and nonzero offset cannot be combined.
     Cursors are untrusted seek positions bound to a wallet, not credentials or snapshot tokens.
     """
-    return accounts.statement(actor, wallet_id, limit, offset, cursor)
+    return statements.statement(actor, wallet_id, limit, offset, cursor)
 
 
 @router.get(
@@ -123,7 +127,7 @@ def statement_summary(wallet_id: ResourceID, from_date: date, to_date: date, act
     snapshot supplies all totals. Held transfers have no entries and contribute nothing.
     Reversals appear as new movements; cached account balances and LLMs are not used.
     """
-    return accounts.statement_summary(actor, wallet_id, from_date, to_date)
+    return statements.statement_summary(actor, wallet_id, from_date, to_date)
 
 
 @router.post(

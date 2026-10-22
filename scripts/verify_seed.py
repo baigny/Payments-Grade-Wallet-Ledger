@@ -6,7 +6,7 @@ from uuid import uuid4
 from psycopg import sql
 
 from scripts.seed import seed
-from wallet.db import connect
+from wallet.core.db import connect
 from wallet.migrate import migrate
 
 

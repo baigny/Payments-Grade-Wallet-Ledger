@@ -3,8 +3,8 @@
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from wallet import db
-from wallet.errors import DomainError
+from wallet.core import db as db
+from wallet.core.errors import DomainError
 
 RULE_COLUMNS = "id, name, rule_type, threshold, window_seconds, action, enabled"
 
@@ -78,7 +78,7 @@ def update_rule(conn, actor, rule_id, data):
 
 
 def held(limit, offset):
-    from wallet.transfers import TRANSFER_COLUMNS
+    from wallet.transfers.service import TRANSFER_COLUMNS
 
     with db.connect(autocommit=True, row_factory=dict_row) as conn:
         items = conn.execute(

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from wallet import llm
+from wallet.core import llm as llm
 
 pytestmark = pytest.mark.database
 SAMPLES = json.loads((Path(__file__).parents[1] / "docs/statement-questions.json").read_text())

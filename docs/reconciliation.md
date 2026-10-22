@@ -8,7 +8,7 @@ consuming the manual request's idempotency key.
 
 ## Checks and saved evidence
 
-The six queries in `wallet/reconciliation_sql.py` check global debit/credit
+The six queries in `wallet/reconciliation/queries.py` check global debit/credit
 totals, each transfer's debit/credit totals, cached versus ledger balances,
 computed wallet overdrafts, posted transfers with fewer than two entries, and
 entries without a transfer or account. Held/rejected transfers legitimately

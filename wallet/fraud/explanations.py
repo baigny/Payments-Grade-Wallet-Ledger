@@ -4,9 +4,10 @@ import psycopg
 from psycopg.rows import dict_row
 from pydantic import ValidationError
 
-from wallet import db, llm
-from wallet.errors import DomainError
-from wallet.models import FlagExplanation
+from wallet.core import db as db
+from wallet.core import llm as llm
+from wallet.core.errors import DomainError
+from wallet.fraud.schemas import FlagExplanation
 
 
 def explain(conn, limit=10, cutoff=None):

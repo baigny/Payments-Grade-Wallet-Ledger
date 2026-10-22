@@ -5,10 +5,10 @@ from datetime import UTC, datetime, time, timedelta
 
 from pydantic import ValidationError
 
-from wallet import llm
-from wallet.auth import authorize_owner
-from wallet.errors import DomainError
-from wallet.models import QuestionSpec
+from wallet.core import llm as llm
+from wallet.core.auth import authorize_owner
+from wallet.core.errors import DomainError
+from wallet.statements.schemas import QuestionSpec
 
 SUPPORTED = (
     "Only total sent to a person, total received, largest transfer "

@@ -12,11 +12,12 @@ from uuid import uuid4
 from psycopg import sql
 from psycopg.rows import dict_row
 
-from wallet import fraud, transfers
-from wallet.auth import Actor
-from wallet.db import connect
+from wallet.core.auth import Actor
+from wallet.core.db import connect
+from wallet.fraud import service as fraud
 from wallet.migrate import migrate
-from wallet.models import TransferCreate
+from wallet.transfers import service as transfers
+from wallet.transfers.schemas import TransferCreate
 
 
 def benchmark(samples=30):

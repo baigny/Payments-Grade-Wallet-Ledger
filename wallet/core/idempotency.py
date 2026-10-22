@@ -8,8 +8,9 @@ from fastapi.responses import Response
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from wallet import db, transfers
-from wallet.errors import DomainError
+from wallet.core import db as db
+from wallet.core.errors import DomainError
+from wallet.transfers import service as transfers
 
 
 def canonical_json(value):

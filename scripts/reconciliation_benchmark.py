@@ -8,9 +8,9 @@ from uuid import uuid4
 
 from psycopg import sql
 
-from wallet.db import connect
+from wallet.core.db import connect
 from wallet.migrate import migrate
-from wallet.reconciliation_sql import CHECKS, PROBLEMS
+from wallet.reconciliation.queries import CHECKS, PROBLEMS
 
 
 def benchmark(entries, statement=False):

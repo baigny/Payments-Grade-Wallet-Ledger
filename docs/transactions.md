@@ -1,6 +1,6 @@
 # Money movement
 
-The posting code is in `wallet/transfers.py`. It uses psycopg transactions and
+The posting code is in `wallet/transfers/service.py`. It uses psycopg transactions and
 explicit SQL; no ORM or balance-changing database trigger hides the money path.
 
 ## Transaction boundary

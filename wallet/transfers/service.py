@@ -2,10 +2,12 @@
 
 import psycopg
 
-from wallet import db, fraud
-from wallet.auth import Actor, authorize_owner, require_admin
-from wallet.errors import DomainError
-from wallet.models import MAX_MONEY, TransferCreate
+from wallet.core import db as db
+from wallet.core.auth import Actor, authorize_owner, require_admin
+from wallet.core.errors import DomainError
+from wallet.core.schemas import MAX_MONEY
+from wallet.fraud import service as fraud
+from wallet.transfers.schemas import TransferCreate
 
 TRANSFER_COLUMNS = (
     "id, source_account_id, destination_account_id, type, status, amount, currency, "

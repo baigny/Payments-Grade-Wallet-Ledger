@@ -6,8 +6,8 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
 
-from wallet.errors import DomainError
-from wallet.models import MAX_MONEY
+from wallet.core.errors import DomainError
+from wallet.core.schemas import MAX_MONEY
 
 
 class Position(BaseModel):

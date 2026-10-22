@@ -58,7 +58,7 @@ def test_summary_empty_wallet_ownership_and_invalid_dates(api):
 
 
 def test_summary_keeps_snapshot_when_transfer_commits_during_read(api, monkeypatch):
-    from wallet import accounts
+    from wallet.statements import service as accounts
 
     user = api.user()
     wallet = api.wallet(user)

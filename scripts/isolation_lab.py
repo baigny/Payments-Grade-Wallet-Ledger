@@ -7,7 +7,7 @@ from uuid import uuid4
 import psycopg
 from psycopg import sql
 
-from wallet.db import connect
+from wallet.core.db import connect
 
 
 def run_lab():

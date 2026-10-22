@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from tests.test_transfers_api import setup_pair
-from wallet import reconciliation
+from wallet.reconciliation import service as reconciliation
 
 pytestmark = pytest.mark.database
 

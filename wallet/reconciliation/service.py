@@ -6,9 +6,9 @@ import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
 
-from wallet import db
-from wallet.errors import DomainError
-from wallet.reconciliation_sql import CHECKS, PROBLEMS
+from wallet.core import db as db
+from wallet.core.errors import DomainError
+from wallet.reconciliation.queries import CHECKS, PROBLEMS
 
 RUN_COLUMNS = (
     "id, started_at, ended_at, status, finding_count, problem_count, "
@@ -127,7 +127,7 @@ def findings(run_id, limit, offset, problems=False):
 
 
 def main():
-    from wallet.models import ReconciliationRun
+    from wallet.reconciliation.schemas import ReconciliationRun
 
     try:
         result = execute()

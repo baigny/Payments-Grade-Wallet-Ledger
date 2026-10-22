@@ -6,8 +6,9 @@ import signal
 import threading
 from datetime import UTC, datetime, timedelta
 
-from wallet import explanations, reconciliation
-from wallet.errors import DomainError
+from wallet.core.errors import DomainError
+from wallet.fraud import explanations as explanations
+from wallet.reconciliation import service as reconciliation
 
 
 def settings():

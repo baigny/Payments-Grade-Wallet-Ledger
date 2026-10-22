@@ -1,6 +1,6 @@
 import pytest
 
-from wallet.auth import token_hash
+from wallet.core.auth import token_hash
 
 pytestmark = pytest.mark.database
 

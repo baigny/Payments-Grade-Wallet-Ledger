@@ -4,9 +4,9 @@ import json
 import pytest
 from psycopg.rows import dict_row
 
-from wallet.auth import Actor
-from wallet.models import TransferCreate
-from wallet.transfers import create_transfer
+from wallet.core.auth import Actor
+from wallet.transfers.schemas import TransferCreate
+from wallet.transfers.service import create_transfer
 
 pytestmark = pytest.mark.database
 

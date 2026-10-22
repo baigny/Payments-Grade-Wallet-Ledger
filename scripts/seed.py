@@ -3,8 +3,8 @@
 import argparse
 import json
 
-from wallet.db import connect
-from wallet.reconciliation_sql import CHECKS, PROBLEMS
+from wallet.core.db import connect
+from wallet.reconciliation.queries import CHECKS, PROBLEMS
 
 
 def seed(conn, users=1000, wallets=2000, transfers=100000):

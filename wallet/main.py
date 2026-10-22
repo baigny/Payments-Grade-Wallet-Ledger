@@ -10,9 +10,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException
 
-from wallet.db import connect
-from wallet.errors import DomainError
-from wallet.models import ErrorResponse
+from wallet.core.db import connect
+from wallet.core.errors import DomainError
+from wallet.core.schemas import ErrorResponse
 from wallet.routes import router
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")

@@ -3,7 +3,8 @@ from datetime import UTC, date, datetime, timedelta, timezone
 import pytest
 from psycopg.rows import dict_row
 
-from wallet import reconciliation, worker
+from wallet import worker
+from wallet.reconciliation import service as reconciliation
 
 
 def test_due_date_handles_midnight_and_the_exact_boundary():

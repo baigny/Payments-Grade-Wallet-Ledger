@@ -8,7 +8,7 @@ import pytest
 from psycopg import sql
 
 from tests.test_transfers_api import setup_pair
-from wallet import transfers
+from wallet.transfers import service as transfers
 
 pytestmark = pytest.mark.database
 

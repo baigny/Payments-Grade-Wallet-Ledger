@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from wallet.models import FlagExplanation
+from wallet.fraud.schemas import FlagExplanation
 
 pytestmark = [
     pytest.mark.database,

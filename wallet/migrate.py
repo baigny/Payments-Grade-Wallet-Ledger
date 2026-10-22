@@ -5,7 +5,7 @@ from pathlib import Path
 
 from psycopg import sql
 
-from wallet.db import connect
+from wallet.core.db import connect
 
 MIGRATIONS = Path(__file__).resolve().parent.parent / "migrations"
 

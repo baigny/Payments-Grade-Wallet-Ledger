@@ -1,7 +1,7 @@
 import psycopg
 import pytest
 
-from wallet.db import connect
+from wallet.core.db import connect
 
 pytestmark = pytest.mark.database
 

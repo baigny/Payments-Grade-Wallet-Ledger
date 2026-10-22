@@ -20,7 +20,7 @@ Keys share one namespace across all POST routes for a caller.
 
 ## Transaction and concurrency
 
-`wallet/idempotency.py` owns the explicit transaction. The account and transfer
+`wallet/core/idempotency.py` owns the explicit transaction. The account and transfer
 services receive its connection and do not open or commit a second connection.
 
 ```sql
