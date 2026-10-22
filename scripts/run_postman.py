@@ -9,6 +9,11 @@ from pathlib import Path
 
 
 def main():
+    compose = (
+        [os.environ["WALLET_COMPOSE_BIN"]]
+        if os.getenv("WALLET_COMPOSE_BIN")
+        else ["docker", "compose"]
+    )
     npx = shutil.which("npx.cmd" if os.name == "nt" else "npx")
     if not npx:
         raise SystemExit("Node.js and npx are required to run Newman.")
@@ -16,8 +21,7 @@ def main():
     if not token:
         result = subprocess.run(
             [
-                "docker",
-                "compose",
+                *compose,
                 "run",
                 "--rm",
                 "api",

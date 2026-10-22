@@ -269,3 +269,22 @@ and 100,000 transfers. The full-size dataset has been verified in a disposable
 schema with all posting and audit triggers enabled: 200,000 ledger entries,
 200,000 status events and no reconciliation discrepancies. The loader refuses
 an existing installation and never resets application data.
+
+Statements also accept a `cursor` returned as `next_cursor` by the previous page.
+For example, request `/wallets/4/statement?limit=50`, then pass its cursor to
+`/wallets/4/statement?limit=50&cursor=...`. Keep offset at zero when using a cursor.
+The timestamp/id boundary handles ties and avoids page shifts from newer postings.
+Each page rechecks wallet ownership. A cursor is a seek position, not a snapshot
+or a credential. See [measured query plans](docs/statement-perf.md).
+
+For a date-range overview, use
+`GET /wallets/4/statement/summary?from_date=2026-01-01&to_date=2026-12-31`.
+It returns opening balance, gross credits/debits, closing balance and transfer
+count in integer paise, from the ledger in one read-only Repeatable Read snapshot.
+Dates are inclusive UTC entry dates. Holds contribute nothing; reversals appear
+as new entries. The summary rechecks ownership and does not use cached balances.
+
+If a Windows Python runner cannot discover the Compose plugin, set
+`WALLET_COMPOSE_BIN` to the installed `docker-compose.exe` path. This override is
+supported by benchmark, Postman and network runners; ordinary Docker commands
+and Linux CI continue to use `docker compose`.

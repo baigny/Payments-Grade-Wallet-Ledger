@@ -314,7 +314,7 @@
           }
         ],
         "url": "{{base_url}}/wallets/{{wallet_id}}/statement",
-        "description": "Statement",
+        "description": "Newest first. Follow next_cursor for stable seek pagination during new postings.\n\nOffset remains available for numbered pages. Cursor and nonzero offset cannot be combined.\nCursors are untrusted seek positions bound to a wallet, not credentials or snapshot tokens.",
         "auth": {
           "type": "bearer",
           "bearer": [
@@ -1082,6 +1082,45 @@
       ]
     },
     {
+      "name": "Statement Summary",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/wallets/{{wallet_id}}/statement/summary?from_date=2020-01-01&to_date=2030-12-31",
+        "description": "Opening and closing ledger balance, gross credits/debits and transfer count.\n\nDates are inclusive UTC dates based on entry creation time. One read-only Repeatable Read\nsnapshot supplies all totals. Held transfers have no entries and contribute nothing.\nReversals appear as new movements; cached account balances and LLMs are not used.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "const s = pm.response.json();",
+              "pm.test(\"Ledger summary balances\", () => pm.expect(s.closing_balance)",
+              "    .to.eql(s.opening_balance + s.credit_total - s.debit_total));"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "Verify final sender balance",
       "request": {
         "method": "GET",
@@ -1606,6 +1645,84 @@
               "pm.test(\"Expected status\", () => pm.response.to.have.status(201));",
               "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
               "    .to.be.a(\"string\").and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read first statement cursor page",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/wallets/{{wallet_id}}/statement?limit=1",
+        "description": "Newest first. Follow next_cursor for stable seek pagination during new postings.\n\nOffset remains available for numbered pages. Cursor and nonzero offset cannot be combined.\nCursors are untrusted seek positions bound to a wallet, not credentials or snapshot tokens.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "pm.test(\"Next cursor\", () => pm.expect(pm.response.json().next_cursor)",
+              "    .to.be.a(\"string\"));",
+              "pm.collectionVariables.set(\"statement_cursor\", pm.response.json().next_cursor);",
+              "pm.collectionVariables.set(\"first_entry\", pm.response.json().items[0].id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read next statement cursor page",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/wallets/{{wallet_id}}/statement?limit=1&cursor={{statement_cursor}}",
+        "description": "Newest first. Follow next_cursor for stable seek pagination during new postings.\n\nOffset remains available for numbered pages. Cursor and nonzero offset cannot be combined.\nCursors are untrusted seek positions bound to a wallet, not credentials or snapshot tokens.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{user_token}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Expected status\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Request ID\", () => pm.expect(pm.response.headers.get(\"X-Request-ID\"))",
+              "    .to.be.a(\"string\").and.not.empty);",
+              "pm.test(\"Distinct next entry\", () => pm.expect(pm.response.json().items[0].id)",
+              "    .not.to.eql(Number(pm.collectionVariables.get(\"first_entry\"))));"
             ]
           }
         }

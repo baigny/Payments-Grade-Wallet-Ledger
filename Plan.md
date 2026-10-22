@@ -48,9 +48,11 @@ Support totals sent to a person, totals received, the largest transfer, and tran
 
 Generate explanations for risk flags without allowing the model to make payment decisions. Treat transfer notes as untrusted input.
 
+Provide date-range statement summaries with opening balance, gross credits and debits, closing balance, and transfer counts from one consistent ledger snapshot. Support cursor pagination alongside offset pagination and verify behavior during concurrent postings.
+
 ### 8. Verify and Document
 
-Add reproducible seed data, query benchmarks, setup instructions, design trade-offs, and a short demonstration covering a transfer, retry, held payment, reconciliation, and statement question.
+Add reproducible seed data, query benchmarks, setup instructions, and design trade-offs. Compare deep-offset and cursor statement plans against a large ledger and keep Swagger and Postman aligned with the implemented API.
 
 ## Key Acceptance Checks
 

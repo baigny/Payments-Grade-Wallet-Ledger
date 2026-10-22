@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Path, Query, Request
@@ -20,6 +21,7 @@ from wallet.models import (
     StatementAnswer,
     StatementQuestion,
     StatementResponse,
+    StatementSummary,
     TransferCreate,
     TransferResponse,
     UserCreate,
@@ -101,8 +103,27 @@ def statement(
     actor: CurrentActor,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0, le=MAX_MONEY)] = 0,
+    cursor: Annotated[str | None, Query(min_length=1, max_length=1024)] = None,
 ):
-    return accounts.statement(actor, wallet_id, limit, offset)
+    """Newest first. Follow next_cursor for stable seek pagination during new postings.
+
+    Offset remains available for numbered pages. Cursor and nonzero offset cannot be combined.
+    Cursors are untrusted seek positions bound to a wallet, not credentials or snapshot tokens.
+    """
+    return accounts.statement(actor, wallet_id, limit, offset, cursor)
+
+
+@router.get(
+    "/wallets/{wallet_id}/statement/summary", response_model=StatementSummary, tags=["Wallets"]
+)
+def statement_summary(wallet_id: ResourceID, from_date: date, to_date: date, actor: CurrentActor):
+    """Opening and closing ledger balance, gross credits/debits and transfer count.
+
+    Dates are inclusive UTC dates based on entry creation time. One read-only Repeatable Read
+    snapshot supplies all totals. Held transfers have no entries and contribute nothing.
+    Reversals appear as new movements; cached account balances and LLMs are not used.
+    """
+    return accounts.statement_summary(actor, wallet_id, from_date, to_date)
 
 
 @router.post(

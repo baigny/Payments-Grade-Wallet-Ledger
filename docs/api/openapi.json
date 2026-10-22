@@ -683,6 +683,7 @@
           "Wallets"
         ],
         "summary": "Statement",
+        "description": "Newest first. Follow next_cursor for stable seek pagination during new postings.\n\nOffset remains available for numbered pages. Cursor and nonzero offset cannot be combined.\nCursors are untrusted seek positions bound to a wallet, not credentials or snapshot tokens.",
         "operationId": "statement_wallets__wallet_id__statement_get",
         "security": [
           {
@@ -724,6 +725,24 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -733,6 +752,136 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StatementResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/wallets/{wallet_id}/statement/summary": {
+      "get": {
+        "tags": [
+          "Wallets"
+        ],
+        "summary": "Statement Summary",
+        "description": "Opening and closing ledger balance, gross credits/debits and transfer count.\n\nDates are inclusive UTC dates based on entry creation time. One read-only Repeatable Read\nsnapshot supplies all totals. Held transfers have no entries and contribute nothing.\nReversals appear as new movements; cached account balances and LLMs are not used.",
+        "operationId": "statement_summary_wallets__wallet_id__statement_summary_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "wallet_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Wallet Id"
+            }
+          },
+          {
+            "name": "from_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "From Date"
+            }
+          },
+          {
+            "name": "to_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "To Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatementSummary"
                 }
               }
             }
@@ -3472,6 +3621,17 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
           }
         },
         "type": "object",
@@ -3483,6 +3643,62 @@
           "items"
         ],
         "title": "StatementResponse"
+      },
+      "StatementSummary": {
+        "properties": {
+          "wallet_id": {
+            "type": "integer",
+            "title": "Wallet Id"
+          },
+          "currency": {
+            "type": "string",
+            "const": "INR",
+            "title": "Currency"
+          },
+          "from_date": {
+            "type": "string",
+            "format": "date",
+            "title": "From Date"
+          },
+          "to_date": {
+            "type": "string",
+            "format": "date",
+            "title": "To Date"
+          },
+          "opening_balance": {
+            "type": "integer",
+            "title": "Opening Balance"
+          },
+          "credit_total": {
+            "type": "integer",
+            "title": "Credit Total"
+          },
+          "debit_total": {
+            "type": "integer",
+            "title": "Debit Total"
+          },
+          "closing_balance": {
+            "type": "integer",
+            "title": "Closing Balance"
+          },
+          "transfer_count": {
+            "type": "integer",
+            "title": "Transfer Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "wallet_id",
+          "currency",
+          "from_date",
+          "to_date",
+          "opening_balance",
+          "credit_total",
+          "debit_total",
+          "closing_balance",
+          "transfer_count"
+        ],
+        "title": "StatementSummary"
       },
       "TransferCreate": {
         "properties": {

@@ -102,6 +102,19 @@ class StatementResponse(BaseModel):
     limit: int
     offset: int
     items: list[StatementEntry]
+    next_cursor: str | None = None
+
+
+class StatementSummary(BaseModel):
+    wallet_id: int
+    currency: Literal["INR"]
+    from_date: date
+    to_date: date
+    opening_balance: int
+    credit_total: int
+    debit_total: int
+    closing_balance: int
+    transfer_count: int
 
 
 class TransferCreate(InputModel):

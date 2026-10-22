@@ -13,7 +13,7 @@ from wallet.migrate import migrate
 from wallet.reconciliation_sql import CHECKS, PROBLEMS
 
 
-def benchmark(entries):
+def benchmark(entries, statement=False):
     schema = "benchmark_" + uuid4().hex
     with connect(autocommit=True) as conn:
         conn.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
@@ -54,6 +54,16 @@ def benchmark(entries):
                     (account, entries * 5, -entries * 5, [account, system]),
                 )
             conn.execute("ANALYZE")
+            if statement:
+                from scripts.statement_benchmark import compare
+
+                return {
+                    "postgres": conn.execute("SELECT version()").fetchone()[0],
+                    "entries": entries,
+                    "wallet_entries": entries // 2,
+                    "completed_at": datetime.now(UTC).isoformat(),
+                    **compare(conn, account),
+                }
             plans = {}
             for group, queries in (("checks", CHECKS), ("problems", PROBLEMS)):
                 plans[group] = {}
@@ -79,6 +89,7 @@ def benchmark(entries):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--entries", type=int, default=1000000)
+    parser.add_argument("--statement", action="store_true")
     args = parser.parse_args()
     if args.entries < 2 or args.entries % 2:
         parser.error("entries must be a positive even number")
@@ -87,7 +98,7 @@ def main():
     import sys
 
     with contextlib.redirect_stdout(sys.stderr):
-        evidence = benchmark(args.entries)
+        evidence = benchmark(args.entries, statement=args.statement)
     print(json.dumps(evidence, indent=2))
 
 

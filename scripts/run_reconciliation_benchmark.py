@@ -14,17 +14,25 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--entries", type=int, default=1000000)
     parser.add_argument("--fraud", action="store_true", help="Measure per-rule posting overhead")
+    parser.add_argument("--statement", action="store_true", help="Compare statement pagination")
     args = parser.parse_args()
+    if args.statement and (args.fraud or args.entries < 200102):
+        parser.error("Statement comparison requires >= 200102 entries and excludes --fraud")
+    compose = (
+        [os.environ["WALLET_COMPOSE_BIN"]]
+        if os.getenv("WALLET_COMPOSE_BIN")
+        else ["docker", "compose"]
+    )
     config = json.loads(
         subprocess.check_output(
-            ["docker", "compose", "config", "--format", "json"],
+            [*compose, "config", "--format", "json"],
             cwd=ROOT,
             text=True,
         )
     )
     image = config["services"]["api"].get("image", f"{config['name']}-api")
     project = "wallet-benchmark-" + uuid4().hex[:12]
-    compose = ["docker", "compose", "-p", project, "-f", str(ROOT / "compose.network.yml")]
+    compose += ["-p", project, "-f", str(ROOT / "compose.network.yml")]
     env = {**os.environ, "WALLET_TEST_IMAGE": image}
 
     def run(*command):
@@ -44,10 +52,12 @@ def main():
         )
         run("up", "-d", "--wait", "db")
         command = (
-            ["scripts/fraud_benchmark.py"]
+            ["-m", "scripts.fraud_benchmark"]
             if args.fraud
-            else ["scripts/reconciliation_benchmark.py", "--entries", str(args.entries)]
+            else ["-m", "scripts.reconciliation_benchmark", "--entries", str(args.entries)]
         )
+        if args.statement:
+            command.append("--statement")
         evidence = json.loads(
             run(
                 "run",
@@ -64,6 +74,54 @@ def main():
         )
     finally:
         run("down", "--volumes", "--remove-orphans")
+    if args.statement:
+        destination = ROOT / "docs/evidence/statement-plans.json"
+        destination.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+        lines = [
+            "# Statement pagination plans",
+            "",
+            f"Dataset: {evidence['entries']:,} ledger entries; "
+            f"{evidence['wallet_entries']:,} entries in the measured wallet.",
+            "Isolated PostgreSQL, actual statement join/projection, LIMIT 51 (50 plus lookahead).",
+            "Both queries returned exactly the same 51 entry IDs and values.",
+            "",
+            "| Query | Execution ms | Shared hits | Shared reads |",
+            "|---|---:|---:|---:|",
+        ]
+        for name, plan in evidence["plans"].items():
+            node = plan["Plan"]
+            lines.append(
+                f"| {name} | {plan['Execution Time']:.3f} | "
+                f"{node.get('Shared Hit Blocks', 0)} | {node.get('Shared Read Blocks', 0)} |"
+            )
+        lines += [
+            "",
+            "OFFSET must visit and discard 100,000 rows before returning the page.",
+            "Seek pagination uses the existing (account_id, created_at DESC, id DESC) index",
+            "and a strict timestamp/id boundary to start near the next page. No new ledger",
+            "index or posting write cost is introduced. The id breaks timestamp ties.",
+            "",
+            "The cursor boundary is taken from the preceding page. Its OFFSET-based lookup",
+            "here only constructs an equivalent benchmark position; it is not part of a",
+            "normal cursor request. Queries run sequentially with warm-cache effects; these",
+            "are single-machine plan measurements, not production latency guarantees.",
+            "",
+            "Synthetic balanced top-ups are bulk-loaded only into a disposable schema with",
+            "triggers temporarily bypassed, as in the reconciliation benchmark. This is a",
+            "read-plan fixture, not an API or payment-throughput benchmark.",
+            "",
+            "Cursors are wallet-bound seek positions, not authentication or database snapshots.",
+            "Newer postings do not shift subsequent pages. A late-committing, older-timestamp",
+            "entry can still appear later; pagination retains no transaction across requests.",
+            "Authorization is rechecked on every page. Invalid positions return 422.",
+            "",
+            "Full plans: [JSON](evidence/statement-plans.json). Reproduce after building the API:",
+            "`python scripts/run_reconciliation_benchmark.py --statement --entries 1000000`.",
+            "",
+        ]
+        (ROOT / "docs/statement-perf.md").write_text("\n".join(lines), encoding="utf-8")
+        print("Statement plans verified and saved; isolated database removed.")
+        return
     if args.fraud:
         destination = ROOT / "docs/evidence/fraud-overhead.json"
         destination.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

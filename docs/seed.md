@@ -7,6 +7,13 @@ or transfers cause a refusal; nothing is deleted or replaced. Standard `PG*` or
 `DATABASE_URL` settings select the database. Custom sizes use `--users`, `--wallets`
 and `--transfers`.
 
+After starting a fresh installation with `docker compose up`, the owner-configured
+Compose service can run the loader directly:
+
+```powershell
+docker compose run --rm migrate python -m scripts.seed
+```
+
 The first 2,000 transfers fund each wallet with 100,000 paise. The remaining
 98,000 are deterministic 100-paise peer payments around a ring of wallets.
 Funding is dated January 2026 and payments February 2026, giving statement

@@ -15,9 +15,14 @@ def main():
     parser.add_argument("--stress", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    compose = (
+        [os.environ["WALLET_COMPOSE_BIN"]]
+        if os.getenv("WALLET_COMPOSE_BIN")
+        else ["docker", "compose"]
+    )
     config = json.loads(
         subprocess.run(
-            ["docker", "compose", "config", "--format", "json"],
+            [*compose, "config", "--format", "json"],
             cwd=ROOT,
             check=True,
             capture_output=True,
@@ -36,7 +41,7 @@ def main():
         parser.error("Build the current API image first: docker compose build api")
     project = "wallet-network-" + uuid4().hex[:12]
     env = {**os.environ, "WALLET_TEST_IMAGE": image}
-    compose = ["docker", "compose", "-p", project, "-f", str(ROOT / "compose.network.yml")]
+    compose += ["-p", project, "-f", str(ROOT / "compose.network.yml")]
 
     def run(*command, extra_env=None):
         result = subprocess.run(

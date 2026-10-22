@@ -33,6 +33,7 @@ ORDER = {
     ("post", "/admin/transfers/{transfer_id}/reject"): 19,
     ("post", "/admin/risk-flags/explain"): 20,
     ("post", "/users/{user_id}/statement/ask"): 21,
+    ("get", "/wallets/{wallet_id}/statement/summary"): 22,
 }
 
 
@@ -45,6 +46,8 @@ def postman_item(spec, path, method, operation):
         "url": "{{base_url}}" + re.sub(r"\{(\w+)\}", r"{{\1}}", path),
         "description": operation.get("description", operation.get("summary", "")),
     }
+    if path.endswith("/statement/summary"):
+        request["url"] += "?from_date=2020-01-01&to_date=2030-12-31"
     if operation.get("security"):
         token = (
             "admin_token"
@@ -79,6 +82,12 @@ def postman_item(spec, path, method, operation):
         'pm.test("Request ID", () => pm.expect(pm.response.headers.get("X-Request-ID"))',
         '    .to.be.a("string").and.not.empty);',
     ]
+    if path.endswith("/statement/summary"):
+        checks += [
+            "const s = pm.response.json();",
+            'pm.test("Ledger summary balances", () => pm.expect(s.closing_balance)',
+            "    .to.eql(s.opening_balance + s.credit_total - s.debit_total));",
+        ]
     if path.startswith("/health/"):
         health = "ok" if path.endswith("/live") else "ready"
         checks.append(
@@ -145,6 +154,7 @@ def artifacts():
         items = transfer_demo(items)
     if "/admin/risk-rules" in spec["paths"]:
         items = fraud_demo(items)
+    items = statement_pages(items)
     collection = {
         "info": {
             "name": "Wallet Ledger",
@@ -178,6 +188,31 @@ def artifacts():
         ROOT / "docs/api/openapi.json": spec,
         ROOT / "postman/Wallet-Ledger.postman_collection.json": collection,
     }
+
+
+def statement_pages(items):
+    template = next(
+        item
+        for item in items
+        if item["request"]["url"] == "{{base_url}}/wallets/{{wallet_id}}/statement"
+    )
+    first = copy.deepcopy(template)
+    first["name"] = "Read first statement cursor page"
+    first["request"]["url"] += "?limit=1"
+    first["event"][0]["script"]["exec"] += [
+        'pm.test("Next cursor", () => pm.expect(pm.response.json().next_cursor)',
+        '    .to.be.a("string"));',
+        'pm.collectionVariables.set("statement_cursor", pm.response.json().next_cursor);',
+        'pm.collectionVariables.set("first_entry", pm.response.json().items[0].id);',
+    ]
+    second = copy.deepcopy(template)
+    second["name"] = "Read next statement cursor page"
+    second["request"]["url"] += "?limit=1&cursor={{statement_cursor}}"
+    second["event"][0]["script"]["exec"] += [
+        'pm.test("Distinct next entry", () => pm.expect(pm.response.json().items[0].id)',
+        '    .not.to.eql(Number(pm.collectionVariables.get("first_entry"))));',
+    ]
+    return [*items, first, second]
 
 
 def transfer_demo(items):
