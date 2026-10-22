@@ -1,49 +1,77 @@
 # Wallet Ledger
 
-The application is grouped by feature: users, wallets, transfers, fraud,
-statements and reconciliation. Each feature owns its routes, request/response
-schemas and service functions. Shared infrastructure lives in `wallet/core/`.
-See [the package structure and Node.js terminology mapping](docs/architecture.md).
+An INR wallet backend using FastAPI, PostgreSQL 16 and explicit SQL. It supports
+wallets, top-ups, peer payments, withdrawals, reversals, fraud review and
+ledger-backed statement questions. Transfers use double-entry accounting,
+ordered row locks and caller-scoped idempotency.
 
-An INR wallet backend using FastAPI, PostgreSQL 16, and explicit SQL.
+## Quick start
 
-The backend includes the accounting schema, bearer authentication, user and wallet
-creation, balance reads, paginated statements, atomic money movement, exact POST replay,
-fraud review and ledger-backed statement questions.
-See [Plan.md](Plan.md) for the roadmap.
-
-Milestone 1 includes database constraints for balanced postings, immutable ledger
-and status history, valid transfer states, full reversals, and nonnegative stored
-wallet balances. The tests cover invalid direct SQL as well as application health.
-
-Milestone 2 adds explicit Read Committed transactions, account locks acquired by
-ascending ID, and rollback-safe posting. See [the money path](docs/transactions.md)
-for SQL, permissions, and the isolation-level trade-off.
-The [two-session isolation lab](docs/isolation.md) includes captured commands and
-output. [Concurrency results](docs/concurrency.md) cover the unsafe counterexample,
-20 stampede rounds, opposite-direction payments, and concurrent reversals.
-
-## Run with Docker
+Requirements: Git and Docker with Docker Compose. Start Docker before running
+these commands:
 
 ```sh
+git clone https://github.com/baigny/Payments-Grade-Wallet-Ledger.git
+cd Payments-Grade-Wallet-Ledger
 docker compose up --build
 ```
 
-PostgreSQL becomes healthy first, the migration service creates the schema, and
-the API and worker start only after migrations finish. The worker runs scheduled
-reconciliation and supports graceful shutdown.
+From an existing checkout, run only `docker compose up --build` in the repository
+root. This starts PostgreSQL, applies migrations, then starts the API and nightly
+worker. The default model provider is an offline mock; no Groq key is needed to
+start the project or run the tests.
 
-Local services:
+Open [Swagger UI](http://localhost:8000/docs) to inspect and try the API.
 
-- API: http://localhost:8000
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-- OpenAPI JSON: http://localhost:8000/openapi.json
-- PostgreSQL: `localhost:55432`
+Run the complete test suite in a second terminal from the same repository:
+
+```sh
+docker compose --profile test run --build --rm test
+```
+
+For authenticated requests, create the first administrator and copy the generated
+token into Swagger's **Authorize** dialog or Postman's `admin_token` variable:
+
+```sh
+docker compose run --rm api python -m wallet.bootstrap
+```
+
+The command prints the token once. If an administrator already exists, use
+`docker compose run --rm api python -m wallet.bootstrap --issue-token` to issue
+another local credential. Every POST also requires a UUID `Idempotency-Key`.
+
+Stop the services while keeping database data:
+
+```sh
+docker compose down
+```
+
+| Local service | Address |
+| --- | --- |
+| API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/docs |
+| ReDoc | http://localhost:8000/redoc |
+| OpenAPI JSON | http://localhost:8000/openapi.json |
+| PostgreSQL | `localhost:55432` |
 
 Optional overrides are listed in [.env.example](.env.example). The default
 passwords are local development values. PostgreSQL and the API bind to localhost.
 The API and worker use `wallet_app`; migrations and tests use the owner login.
+For hosted Groq configuration and verification, see [the model guide](docs/live-llm.md).
+
+## Project structure
+
+The application is grouped by feature: users, wallets, transfers, fraud,
+statements and reconciliation. Each feature owns its routes, request/response
+schemas and service functions. Shared infrastructure lives in `wallet/core/`.
+See [the package structure](docs/architecture.md) and [Plan.md](Plan.md).
+
+Database constraints protect balanced postings, immutable ledger and status
+history, valid transfer states, full reversals and nonnegative wallet balances.
+The [money path](docs/transactions.md) explains transaction boundaries, lock order,
+SQL permissions and isolation choices. The [two-session lab](docs/isolation.md)
+and [concurrency results](docs/concurrency.md) record the unsafe counterexample,
+20 stampede rounds, opposite-direction payments and concurrent reversals.
 
 ## Database design
 
@@ -81,7 +109,6 @@ diagram, accounting conventions, and index rationale. Migrations live in
 
 ```sh
 docker compose run --rm migrate
-docker compose --profile test run --build --rm test
 docker compose --profile test run --rm test ruff check wallet tests scripts
 ```
 
@@ -95,13 +122,10 @@ CI runs the full suite against PostgreSQL through Compose.
 Swagger is served directly from the application's OpenAPI definition. Import
 [the Postman collection](postman/Wallet-Ledger.postman_collection.json) and
 [local environment](postman/Local.postman_environment.json). Bootstrap the first
-administrator and paste its generated token into the environment's `admin_token`:
+administrator using the [quick-start command](#quick-start) and paste its generated
+token into the environment's `admin_token`.
 
-```sh
-docker compose run --rm api python -m wallet.bootstrap
-```
-
-The command prints the token once and refuses to overwrite an existing admin.
+The bootstrap command refuses to overwrite an existing admin.
 After an automated demo, or when an additional local credential is needed, run
 `docker compose run --rm api python -m wallet.bootstrap --issue-token`. This
 requires database access and preserves existing tokens; it is not an HTTP endpoint.
@@ -115,7 +139,8 @@ The collection creates two users and wallets, funds the sender, sends a peer
 payment, replays it, rejects a changed-amount retry, withdraws funds, charges a fee,
 reverses the peer payment, and checks the
 final sender balance. Swagger offers request examples for every movement type.
-To run this flow automatically, install Node.js and run:
+To run this flow automatically, install Node.js and use the
+[local Python tools](#local-python-tools) environment, then run:
 
 ```sh
 python scripts/run_postman.py
@@ -179,26 +204,34 @@ fan-out, a three-wallet cycle, unrelated-wallet progress under a held lock,
 timeout rollback and recovery, and failures before credit insertion and after
 the first balance update. These extend the required stampede rather than replace it.
 
-## Local Python setup
+## Local Python tools
 
-Requires Python 3.12 or later.
+The API, migrations and worker run through the Docker commands above. Python
+3.12 or later is needed locally only for the optional host-side scripts below,
+such as API export, Postman, network verification and the hosted-model check.
+Run commands from the repository root.
+
+Create a virtual environment:
 
 ```sh
 python -m venv .venv
-# Activate .venv using the command for your shell.
+```
+
+Activate it with `.venv\Scripts\Activate.ps1` in PowerShell or
+`source .venv/bin/activate` in Bash, then install this project's dependencies:
+
+```sh
 python -m pip install -r requirements.lock
 python -m pip install --no-deps -e .
-uvicorn wallet.main:app --reload
 ```
+
+The `python scripts/...` commands in this README use that active environment.
+For verification entirely inside Docker, use the full-suite command in
+[Quick start](#quick-start); local Python installation is not required.
 
 `GET /health/live` checks the application. `GET /health/ready` also checks database
 connectivity and the presence of the account schema. Every response includes an
 `X-Request-ID` header.
-
-```sh
-pytest tests/core/test_health.py -q
-ruff check wallet tests scripts
-```
 
 ## Reconciliation
 
