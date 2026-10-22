@@ -251,6 +251,11 @@ or API keys are needed. For an already installed Ollama model, configure
 worker. The Ollama HTTP adapter is tested with a mock transport; a real installed
 model is an optional integration, not part of the offline acceptance results.
 
+The [local-model acceptance check](docs/live-llm.md) exercises all four question
+types and a flag explanation against real PostgreSQL when explicitly enabled.
+The installed model could not load into available memory during verification;
+the application remains on the offline mock by default.
+
 The nightly worker explains eligible risk flags using the rule snapshot and that
 wallet's last ten prior transfers. It saves two sentences and an advisory label.
 Notes are treated as untrusted data. This runs after reconciliation in a separate
