@@ -6,13 +6,13 @@ or “last month”. `MockProvider(response=...)` returns fixed JSON for tests.
 No network or API key is required. The ten reproducible questions and expected
 fixture answers are in [the sample corpus](statement-questions.json).
 
-For a real locally hosted model, set `LLM_PROVIDER=ollama`, `OLLAMA_BASE_URL`
-and `OLLAMA_MODEL` to an already installed model, then recreate API/worker.
-The adapter follows [Ollama's chat API](https://docs.ollama.com/api/chat) and
-[structured output contract](https://docs.ollama.com/capabilities/structured-outputs):
-non-streaming messages, JSON schema format and temperature zero. Application
-validation is mandatory even when the provider supports schema-constrained output.
-The project does not download a model or contact any provider by default.
+For a hosted model, configure `LLM_PROVIDER=hosted`, `LLM_BASE_URL`,
+`LLM_MODEL` and `LLM_API_KEY`, then recreate API/worker. The adapter sends
+non-streaming OpenAI-compatible Chat Completions with JSON-object mode and
+includes the schema in the trusted system message. Application validation is
+mandatory: JSON mode alone does not enforce our domain schema. Provider failures,
+refusals and truncated responses return a bounded 503 without an offline fallback.
+The default mock never contacts a provider. See [verification](live-llm.md).
 
 ## Questions
 
@@ -64,7 +64,7 @@ Flags newer than that cutoff wait for the next night; admins can explain them
 immediately with the manual endpoint. Provider failures leave flags eligible for
 retry on the next poll and cannot roll back a saved reconciliation report.
 
-The optional Ollama endpoint is operator configuration, never client input.
+The optional hosted endpoint is operator configuration, never client input.
 Requests have a ten-second HTTP timeout, redirects disabled, and bounded output.
 An unavailable provider fails visibly; it does not silently fabricate an answer.
 Using a remote endpoint sends the described prompt data to that operator-selected

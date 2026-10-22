@@ -35,7 +35,10 @@ def tick(now, hour, minute):
         hour=hour, minute=minute
     )
     try:
-        explained = explanations.execute(100, cutoff)
+        limit = int(os.getenv("EXPLANATION_BATCH_SIZE", "1"))
+        if not 1 <= limit <= 100:
+            raise ValueError("EXPLANATION_BATCH_SIZE must be 1..100")
+        explained = explanations.execute(limit, cutoff)
         if explained["explained"]:
             logging.info("risk explanations saved=%s", explained["explained"])
     except Exception as exc:

@@ -1,0 +1,30 @@
+{
+  "completed_at": "2026-10-22T14:46:15.048925+00:00",
+  "provider": "hosted",
+  "model": "openai/gpt-oss-20b",
+  "questions": [
+    {
+      "type": 1,
+      "value": 1000,
+      "contributing_rows": 1
+    },
+    {
+      "type": 2,
+      "value": 10200,
+      "contributing_rows": 2
+    },
+    {
+      "type": 3,
+      "value": 10000,
+      "contributing_rows": 1
+    },
+    {
+      "type": 4,
+      "value": 3,
+      "contributing_rows": 3
+    }
+  ],
+  "explanation_label": "review",
+  "held_money_unchanged": true,
+  "scope": "ASGI HTTP, PostgreSQL, hosted model; synthetic scratch data"
+}

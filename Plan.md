@@ -50,6 +50,8 @@ Support totals sent to a person, totals received, the largest transfer, and tran
 
 Generate explanations for risk flags without allowing the model to make payment decisions. Treat transfer notes as untrusted input.
 
+Use a configurable OpenAI-compatible hosted provider with an offline mock. Exercise the provider HTTP contract in every test run and verify real model behavior separately with synthetic PostgreSQL data. Keep credentials in local environment configuration and bound explanation batches for hosted quotas.
+
 Provide date-range statement summaries with opening balance, gross credits and debits, closing balance, and transfer counts from one consistent ledger snapshot. Support cursor pagination alongside offset pagination and verify behavior during concurrent postings.
 
 ### 8. Verify and Document

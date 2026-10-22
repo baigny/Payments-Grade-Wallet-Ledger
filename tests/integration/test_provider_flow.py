@@ -1,24 +1,64 @@
-"""Explicit opt-in: real local model, PostgreSQL and the authenticated HTTP application."""
+"""Always-run provider protocol flow; explicit CLI can select a real hosted model."""
 
 import json
 import os
 from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 
 import pytest
 
+from wallet.core.llm import MockProvider
 from wallet.fraud.schemas import FlagExplanation
 
-pytestmark = [
-    pytest.mark.database,
-    pytest.mark.skipif(
-        os.getenv("WALLET_LIVE_LLM") != "1", reason="Opt in to a configured local Ollama model"
-    ),
-]
+pytestmark = pytest.mark.database
 
 
-def test_live_model_answers_from_ledger_and_explains_without_moving_money(api, monkeypatch):
-    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+@pytest.fixture
+def language_provider(monkeypatch):
+    if os.getenv("WALLET_VERIFY_HOSTED") == "1":
+        assert os.getenv("LLM_API_KEY"), "Hosted verification requires LLM_API_KEY"
+        monkeypatch.setenv("LLM_PROVIDER", "hosted")
+        yield "hosted"
+        return
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_):
+            pass
+
+        def do_POST(self):
+            assert self.path == "/v1/chat/completions"
+            assert self.headers["Authorization"] == "Bearer protocol-test-key"
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            data = json.loads(body["messages"][1]["content"])
+            task = "statement_question" if "question" in data else "explain_flag"
+            content = MockProvider().generate(task, data, {})
+            payload = json.dumps(
+                {"choices": [{"finish_reason": "stop", "message": {"content": content}}]}
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setenv("LLM_PROVIDER", "hosted")
+    monkeypatch.setenv("LLM_BASE_URL", f"http://127.0.0.1:{server.server_port}/v1")
+    monkeypatch.setenv("LLM_API_KEY", "protocol-test-key")
+    monkeypatch.setenv("LLM_MODEL", "protocol-fixture")
+    try:
+        yield "protocol-fixture"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_model_answers_from_ledger_and_explains_without_moving_money(api, language_provider):
     rhea, rahul, stranger = [api.user(name) for name in ("Rhea", "Rahul", "Stranger")]
     source, destination, other = [api.wallet(user) for user in (rhea, rahul, stranger)]
     funding = api.fund(source, 10000)
@@ -97,17 +137,17 @@ def test_live_model_answers_from_ledger_and_explains_without_moving_money(api, m
             == 9200
         )
     evidence = os.getenv("WALLET_LLM_EVIDENCE")
-    if evidence:
+    if evidence and language_provider == "hosted":
         Path(evidence).write_text(
             json.dumps(
                 {
                     "completed_at": datetime.now(UTC).isoformat(),
-                    "provider": "ollama",
-                    "model": os.environ["OLLAMA_MODEL"],
+                    "provider": "hosted",
+                    "model": os.environ["LLM_MODEL"],
                     "questions": results,
                     "explanation_label": label,
                     "held_money_unchanged": True,
-                    "scope": "ASGI HTTP, PostgreSQL, local model; synthetic scratch data",
+                    "scope": "ASGI HTTP, PostgreSQL, hosted model; synthetic scratch data",
                 },
                 indent=2,
             )

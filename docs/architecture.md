@@ -18,7 +18,7 @@ wallet/
     db.py                 PostgreSQL connection setup
     errors.py             shared domain exception
     idempotency.py        request transaction, savepoints and exact replay
-    llm.py                mock and Ollama provider interface
+    llm.py                mock and hosted provider interface
     schemas.py            shared validation types and error response
   users/
     router.py             user creation endpoint
@@ -98,12 +98,13 @@ tests/
   statements/             pages, summaries and statement questions
   reconciliation/         reports, corruption detection and scheduling
   database/               migrations, constraints, roles, seeds and isolation
-  integration/            cross-feature edge cases and opt-in real-model checks
+  integration/            cross-feature cases and loopback provider protocol checks
 ```
 
 `conftest.py` remains at the test root so its fixtures are available to every
 package. Reusable helpers belong in `support/`; test modules do not import other
-test modules. The opt-in real-model test remains skipped in normal offline runs.
+test modules. The provider flow runs offline through a loopback HTTP fixture. Real hosted-model
+verification is an explicit command described in `docs/live-llm.md`.
 
 Run the whole suite with the existing command, or select one feature:
 

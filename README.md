@@ -249,17 +249,19 @@ Amounts come from the authorized user's ledger entries. The model returns only
 validated intent; it cannot choose accounts or write SQL. The ten sample
 questions and expected fixture answers are checked in CI.
 
-The local `.env` defaults to `LLM_PROVIDER=mock`: an offline deterministic demo
-adapter with fixed JSON responses for tests. No model downloads, network calls
-or API keys are needed. For an already installed Ollama model, configure
-`LLM_PROVIDER=ollama`, `OLLAMA_BASE_URL` and `OLLAMA_MODEL`, then recreate API and
-worker. The Ollama HTTP adapter is tested with a mock transport; a real installed
-model is an optional integration, not part of the offline acceptance results.
+The default `LLM_PROVIDER=mock` is an offline deterministic adapter with fixed
+JSON responses for tests. For a hosted model, set `LLM_PROVIDER=hosted`,
+`LLM_BASE_URL`, `LLM_MODEL` and `LLM_API_KEY` in ignored `.env`, then recreate
+API and worker. `.env.example` includes Groq's compatible endpoint and
+`openai/gpt-oss-20b`; free-tier quotas apply, with no automatic fallback.
+Credentials are server configuration and never part of an API request.
 
-The [local-model acceptance check](docs/live-llm.md) exercises all four question
-types and a flag explanation against real PostgreSQL when explicitly enabled.
-The installed model could not load into available memory during verification;
-the application remains on the offline mock by default.
+The [provider acceptance check](docs/live-llm.md) covers all four question types
+and an advisory explanation against PostgreSQL. Offline CI always runs the same
+flow through a loopback HTTP protocol fixture. A separate explicit command uses
+the real hosted model; fixture success is not a claim of live model success.
+The [recorded Groq check](docs/evidence/hosted-llm.json) passed all four answers
+and the explanation using synthetic data, with held money unchanged.
 
 The nightly worker explains eligible risk flags using the rule snapshot and that
 wallet's last ten prior transfers. It saves two sentences and an advisory label.
