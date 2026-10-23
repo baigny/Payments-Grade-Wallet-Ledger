@@ -340,3 +340,33 @@ If a Windows Python runner cannot discover the Compose plugin, set
 `WALLET_COMPOSE_BIN` to the installed `docker-compose.exe` path. This override is
 supported by benchmark, Postman and network runners; ordinary Docker commands
 and Linux CI continue to use `docker compose`.
+
+
+## Assumptions and next steps
+
+Top-ups and withdrawals simulate external settlement; no bank or payment gateway
+is connected. KYC status is stored without a production KYC integration. Top-ups
+and fees require an admin; fees are explicit transfers rather than an automatic
+withdrawal surcharge. Reversals are full and must still respect available funds.
+Statement dates use inclusive UTC days; received totals include posted credits,
+and counts deduplicate transfers touching more than one of the user's wallets.
+Held transfers reserve no money, so release rechecks funds. Default fraud
+thresholds are documented in [fraud policies](docs/fraud.md), since the supplied
+brief's rule table is blank.
+
+Stored balances make reads and funds checks cheap but add writes and contention;
+reconciliation independently verifies them. Explicit locks keep the money path
+readable; a busy wallet and shared system accounts still serialize. Provider
+requests use a shared budget, but inference currently spans a database transaction.
+These trade-offs do not establish production throughput.
+
+The next improvements are a bounded connection pool, model jobs that call the
+provider outside database transactions with recoverable leases, and metrics for
+lock waits, request latency and reconciliation freshness. Production deployment
+would additionally need managed secrets, HTTPS and verified backup/restore.
+Partitioning and cross-shard settlement need a separate measured design. The
+optional 24-hour idempotency purge is disabled to preserve replay protection.
+
+The [brief checklist](Plan.md#brief-verification) maps each requirement to evidence
+and records the missing source tables, schema-first chronology qualification and
+the demo video excluded at the user's request.
