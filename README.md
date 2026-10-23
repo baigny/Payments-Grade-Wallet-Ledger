@@ -13,31 +13,34 @@ these commands:
 ```sh
 git clone https://github.com/baigny/Payments-Grade-Wallet-Ledger.git
 cd Payments-Grade-Wallet-Ledger
-docker compose up --build
+docker compose up
 ```
 
-From an existing checkout, run only `docker compose up --build` in the repository
-root. This starts PostgreSQL, applies migrations, then starts the API and nightly
-worker. The default model provider is an offline mock; no Groq key is needed to
-start the project or run the tests.
+From an existing checkout, run only `docker compose up` in the repository
+root. This starts PostgreSQL, applies migrations and runs the full test suite.
+The API and nightly worker start after every test passes. Test results appear
+in the terminal; allow several minutes before opening Swagger. A test failure
+blocks fresh API/worker startup. The tests always use the offline mock and never
+need a Groq key, even if your API is configured for Groq in local `.env`.
+After pulling code changes, use `docker compose up --build` to rebuild images.
 
 Open [Swagger UI](http://localhost:8000/docs) to inspect and try the API.
 
-Run the complete test suite in a second terminal from the same repository:
+No second command is required to run the tests. To rerun only the suite later:
 
 ```sh
-docker compose --profile test run --build --rm test
+docker compose run --rm test
 ```
 
 For authenticated requests, create the first administrator and copy the generated
 token into Swagger's **Authorize** dialog or Postman's `admin_token` variable:
 
 ```sh
-docker compose run --rm api python -m wallet.bootstrap
+docker compose exec -T api python -m wallet.bootstrap
 ```
 
 The command prints the token once. If an administrator already exists, use
-`docker compose run --rm api python -m wallet.bootstrap --issue-token` to issue
+`docker compose exec -T api python -m wallet.bootstrap --issue-token` to issue
 another local credential. Every POST also requires a UUID `Idempotency-Key`.
 
 Stop the services while keeping database data:
@@ -109,7 +112,7 @@ diagram, accounting conventions, and index rationale. Migrations live in
 
 ```sh
 docker compose run --rm migrate
-docker compose --profile test run --rm test ruff check wallet tests scripts
+docker compose run --rm test ruff check wallet tests scripts
 ```
 
 Database tests create an isolated schema, roll back test data, and remove that
@@ -127,7 +130,7 @@ token into the environment's `admin_token`.
 
 The bootstrap command refuses to overwrite an existing admin.
 After an automated demo, or when an additional local credential is needed, run
-`docker compose run --rm api python -m wallet.bootstrap --issue-token`. This
+`docker compose exec -T api python -m wallet.bootstrap --issue-token`. This
 requires database access and preserves existing tokens; it is not an HTTP endpoint.
 Authentication stores SHA-256 hashes of random opaque tokens. User creation is
 admin-only; its saved idempotency response retains the generated token so an
@@ -253,7 +256,7 @@ and retries contention/outages on the next poll. Older missed dates are not
 backfilled. A completed error report consumes that schedule date; manual runs
 can investigate immediately without waiting for the next night.
 
-Run checks from a terminal with `docker compose run --rm api python -m wallet.reconciliation`.
+Run checks from a terminal with `docker compose exec -T api python -m wallet.reconciliation`.
 Exit codes are 0 (passed), 2 (integrity problems), 3 (check error), and 4 (busy).
 The command prints a report summary. It never changes balances or ledger entries.
 

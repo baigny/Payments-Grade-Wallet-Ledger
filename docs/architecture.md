@@ -110,7 +110,7 @@ verification is an explicit command described in `docs/live-llm.md`.
 Run the whole suite with the existing command, or select one feature:
 
 ```powershell
-docker compose --profile test run --build --rm test
-docker compose --profile test run --build --rm test pytest tests/transfers/ -q
-docker compose --profile test run --build --rm test pytest tests/statements/ -q
+docker compose run --build --rm test
+docker compose run --build --rm test pytest tests/transfers/ -q
+docker compose run --build --rm test pytest tests/statements/ -q
 ```

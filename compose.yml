@@ -57,6 +57,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      test:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 5s
@@ -69,15 +71,18 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      test:
+        condition: service_completed_successfully
 
   test:
     <<: *app
-    profiles: ["test"]
     environment:
       PGHOST: db
       PGDATABASE: ${POSTGRES_DB:-wallet}
       PGUSER: ${POSTGRES_USER:-wallet_owner}
       PGPASSWORD: ${POSTGRES_PASSWORD:-local-wallet-password}
+      LLM_PROVIDER: mock
+      WALLET_VERIFY_HOSTED: "0"
     command: ["pytest", "-q"]
     depends_on:
       migrate:

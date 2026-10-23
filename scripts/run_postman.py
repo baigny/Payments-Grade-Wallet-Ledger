@@ -22,8 +22,8 @@ def main():
         result = subprocess.run(
             [
                 *compose,
-                "run",
-                "--rm",
+                "exec",
+                "-T",
                 "api",
                 "python",
                 "-m",
