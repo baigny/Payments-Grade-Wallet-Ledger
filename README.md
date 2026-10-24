@@ -5,6 +5,10 @@ wallets, top-ups, peer payments, withdrawals, reversals, fraud review and
 ledger-backed statement questions. Transfers use double-entry accounting,
 ordered row locks and caller-scoped idempotency.
 
+## Demo video
+
+Watch the [project demo on Google Drive](https://drive.google.com/file/d/13-AY8npkHTVOsVq-VgqlgNWwNEJ6cCnu/view?usp=drive_link).
+
 ## Quick start
 
 Requirements: Git and Docker with Docker Compose. Start Docker before running
@@ -142,8 +146,8 @@ The collection creates two users and wallets, funds the sender, sends a peer
 payment, replays it, rejects a changed-amount retry, withdraws funds, charges a fee,
 reverses the peer payment, and checks the
 final sender balance. Swagger offers request examples for every movement type.
-To run this flow automatically, install Node.js and use the
-[local Python tools](#local-python-tools) environment, then run:
+To run this flow automatically, install Node.js and use a Python 3.12+
+environment with the dependencies from requirements.lock installed, then run:
 
 ```sh
 python scripts/run_postman.py
@@ -170,203 +174,315 @@ python scripts/export_api.py --check
 
 Tests fail if either export differs from the running application's contract.
 
-## Milestones 1 and 2 verification
+## Project setup and demo guide
 
-[The brief coverage review](docs/milestones-1-2-review.md) maps each requirement
-to its implementation and evidence. The required 20 rounds of 100 concurrent
-requests remain in the database integration suite. For a lightweight real HTTP
-check from a separate container:
+These commands are for **Windows Command Prompt (CMD)**, run from the repository
+root. Each step includes a caption you can use in the demo recording. PostgreSQL
+is required; the startup command below hides its logs, rather than disabling it.
 
-```sh
-docker compose build api
-python scripts/run_network_checks.py --output docs/evidence/network-smoke.json
+Use a fresh demo dataset for the expected balances below. On an existing
+installation, email addresses and phone numbers must be unique. Reuse the IDs
+of existing demo users instead of creating duplicate users. Do not delete the
+database to repeat a recording.
+
+### 1. Clone and open the project
+
+**Caption:** Clone the wallet backend and open its repository.
+
+```cmd
+git clone https://github.com/baigny/Payments-Grade-Wallet-Ledger.git
+cd Payments-Grade-Wallet-Ledger
 ```
 
-The default runs one round of 20 requests: ten post and ten fail for insufficient
-funds. It checks cached balances, statement totals and every successful payment's
-matching debit/credit pair. Each run uses a unique Compose project, its own database
-volume and an internal network without published ports. It also sends ten parallel
-retries of a successful payment and rejects a changed amount with that key, then
-checks the balances again. Temporary services and data are removed even when
-verification fails. The development database is untouched. Only verification
-results are saved; credentials remain in memory.
+If already cloned, open CMD in your existing repository instead.
 
-For an explicitly requested heavier network run, use
-`python scripts/run_network_checks.py --stress` (20 rounds of 100 requests).
-CI uses the small smoke test. Network POST failures fail the run without retries;
-reuse the same key when retrying a request whose response was lost.
+### 2. Verify Docker
 
-The actual two-psql-process lab, including write skew, is reproducible with:
+**Caption:** Check that the Docker engine is available.
 
-```sh
-python scripts/psql_lab.py --output docs/isolation.md
+```cmd
+docker version
 ```
 
-Further database tests cover mixed peer/withdrawal/fee spending, twenty-recipient
-fan-out, a three-wallet cycle, unrelated-wallet progress under a held lock,
-timeout rollback and recovery, and failures before credit insertion and after
-the first balance update. These extend the required stampede rather than replace it.
+Start Docker Desktop first if the server connection fails.
 
-## Local Python tools
+### 3. Start the complete stack
 
-The API, migrations and worker run through the Docker commands above. Python
-3.12 or later is needed locally only for the optional host-side scripts below,
-such as API export, Postman, network verification and the hosted-model check.
-Run commands from the repository root.
+**Caption:** Start PostgreSQL, apply migrations, run every test, then start the API and worker.
 
-Create a virtual environment:
-
-```sh
-python -m venv .venv
+```cmd
+docker compose up --no-attach db
 ```
 
-Activate it with `.venv\Scripts\Activate.ps1` in PowerShell or
-`source .venv/bin/activate` in Bash, then install this project's dependencies:
+This is the normal startup with database log streaming hidden. Plain
+`docker compose up` also works and includes database logs. Keep this terminal
+running; open a second CMD window in the same repository for subsequent commands.
 
-```sh
-python -m pip install -r requirements.lock
-python -m pip install --no-deps -e .
+### 4. Verify services, tests and readiness
+
+**Caption:** Confirm the tests passed and the application is ready.
+
+```cmd
+docker compose ps -a
+docker compose logs --tail 5 test
+curl.exe -sS http://localhost:8000/health/ready
 ```
 
-The `python scripts/...` commands in this README use that active environment.
-For verification entirely inside Docker, use the full-suite command in
-[Quick start](#quick-start); local Python installation is not required.
+The database, API and worker should be running. The one-time `migrate` and
+`test` containers should show `Exited (0)`. A failed test blocks fresh API and
+worker startup. Swagger is available at http://localhost:8000/docs.
 
-`GET /health/live` checks the application. `GET /health/ready` also checks database
-connectivity and the presence of the account schema. Every response includes an
-`X-Request-ID` header.
+### 5. Issue an admin token
 
-## Reconciliation
+**Caption:** Generate a local administrator credential for authenticated requests.
 
-Milestone 4 checks the books in one Repeatable Read snapshot and saves reports.
-Admin users can call `POST /admin/reconciliation/run` with an Idempotency-Key,
-then read its summary, raw findings and comparisons against posted business events.
-See [the reconciliation protocol](docs/reconciliation.md) for report semantics,
-permissions, error behavior and corruption acceptance checks.
+```cmd
+docker compose exec -T api python -m wallet.bootstrap --issue-token
+```
 
-Compose automatically reads the local `.env` (ignored by Git). Use `.env.example`
-for a new checkout. The nightly schedule defaults to **02:00 UTC (07:30 India)**:
-`RECONCILIATION_ENABLED`, `RECONCILIATION_UTC_HOUR`, `RECONCILIATION_UTC_MINUTE`
-and `RECONCILIATION_STATEMENT_TIMEOUT_MS` control it. Recreate the worker after
-changing settings: `docker compose up -d --force-recreate worker`.
+**Blur the token printed by this command in the video.** Real credentials do
+not belong in the README, screenshots or committed files.
 
-The worker catches up the most recent due schedule date on startup, records at
-most one run for that date, and polls once per minute. It skips overlapping jobs
-and retries contention/outages on the next poll. Older missed dates are not
-backfilled. A completed error report consumes that schedule date; manual runs
-can investigate immediately without waiting for the next night.
+Run the following command unchanged, press Enter, paste only the newly printed
+token at the prompt, then press Enter again. **Blur this input too.** Do not put
+the token inside the prompt text or include the words `Bearer token`.
 
-Run checks from a terminal with `docker compose exec -T api python -m wallet.reconciliation`.
-Exit codes are 0 (passed), 2 (integrity problems), 3 (check error), and 4 (busy).
-The command prints a report summary. It never changes balances or ledger entries.
+```cmd
+set /p "ADMIN_TOKEN=Paste newly issued admin token: "
+cls
+```
 
-The brief's one-million-entry query benchmark runs only on explicit request in
-an isolated Docker database: `python scripts/run_reconciliation_benchmark.py`.
-Full-ledger sums and nightly grouped checks can afford sequential scans; orphan
-joins and transfer lookups benefit from primary-key and ledger transfer indexes.
-Report pagination uses `(run_id, id)`. See [measured query plans](docs/perf.md).
-CI keeps the normal integration suite and lightweight network smoke test.
+The remaining requests use `%ADMIN_TOKEN%`; CMD substitutes the value without
+printing it in the command text. Avoid `echo %ADMIN_TOKEN%` and verbose curl
+options that expose authorization headers.
 
-## Fraud review and statement questions
+### 6. Set a recording prefix
 
-Milestone 5 evaluates the database's amount, velocity and rolling-total rules in
-the locked money transaction. Any hold action creates a transfer without moving
-funds. Admin release/reject endpoints require a reason, record the actor and
-recheck current balances. Flag-only actions post normally. Rule management and
-review are available in Swagger and the Postman collection.
+**Caption:** Give each operation its own idempotency key.
 
-See [fraud policies](docs/fraud.md), [rule-overhead measurements](docs/fraud-perf.md)
-and [the question/explanation protocol](docs/statement-questions.md).
+```cmd
+set "DEMO_RUN=20261024-0003"
+```
 
-`POST /users/{id}/statement/ask` supports total sent to a named person, total
-received, the largest posted movement and movement counts in an inclusive UTC
-date range. Each answer contains an integer and the contributing transfer IDs.
-Amounts come from the authorized user's ledger entries. The model returns only
-validated intent; it cannot choose accounts or write SQL. The ten sample
-questions and expected fixture answers are checked in CI.
+For a later recording, choose a new prefix such as `20261024-0004`. Keep the
+same prefix for a transfer and its identical retry. New keys execute new
+operations: they do not reset balances or bypass unique email constraints.
+Replaying an old rule update returns its saved response without applying it again.
 
-The default `LLM_PROVIDER=mock` is an offline deterministic adapter with fixed
-JSON responses for tests. For a hosted model, set `LLM_PROVIDER=hosted`,
-`LLM_BASE_URL`, `LLM_MODEL` and `LLM_API_KEY` in ignored `.env`, then recreate
-API and worker. `.env.example` includes Groq's compatible endpoint and
-`openai/gpt-oss-20b`; free-tier quotas apply, with no automatic fallback.
-Credentials are server configuration and never part of an API request.
+### 7. Create the sender
 
-The [provider acceptance check](docs/live-llm.md) covers all four question types
-and an advisory explanation against PostgreSQL. Offline CI always runs the same
-flow through a loopback HTTP protocol fixture. A separate explicit command uses
-the real hosted model; fixture success is not a claim of live model success.
-The [recorded Groq check](docs/evidence/hosted-llm.json) passed all four answers
-and the explanation using synthetic data, with held money unchanged.
-API and worker share rolling request/token budgets in PostgreSQL. Quota
-exhaustion or provider throttling returns `503 LLM_BUSY` with `Retry-After`,
-without saving an idempotent failure or automatically retrying the model call.
-See [quota settings and limitations](docs/live-llm.md#quotas-and-cooldowns).
+**Caption:** Register nabil_sender with a unique email address and phone number.
 
-The nightly worker explains eligible risk flags using the rule snapshot and that
-wallet's last ten prior transfers. It saves two sentences and an advisory label.
-Notes are treated as untrusted data. This runs after reconciliation in a separate
-transaction and never releases, rejects or posts a payment. Model failures remain
-visible and are retried later; no fabricated answer is substituted.
+```cmd
+curl.exe -i -X POST "http://localhost:8000/users" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000001" -H "Content-Type: application/json" --data "{\"name\":\"nabil_sender\",\"email\":\"baigny@gmail.com\",\"phone\":\"+919800002401\"}"
+```
 
-Fraud defaults intentionally hold high-velocity spending. Money-path stampede
-tests keep rules active with non-triggering thresholds; dedicated tests cover
-threshold boundaries, simultaneous velocity checks and admin-review races.
-The lightweight network test uses the same explicitly configured acceptance policy.
+Blur the `token` field in the user response. Run this command unchanged and
+enter the numeric `id` returned in that response when prompted:
 
-## Review dataset
+```cmd
+set /p "SENDER_ID=Enter sender user id: "
+```
 
-The [seed guide](docs/seed.md) provides the required 1,000 users, 2,000 wallets
-and 100,000 transfers. The full-size dataset has been verified in a disposable
-schema with all posting and audit triggers enabled: 200,000 ledger entries,
-200,000 status events and no reconciliation discrepancies. The loader refuses
-an existing installation and never resets application data.
+### 8. Create the receiver
 
-Statements also accept a `cursor` returned as `next_cursor` by the previous page.
-For example, request `/wallets/4/statement?limit=50`, then pass its cursor to
-`/wallets/4/statement?limit=50&cursor=...`. Keep offset at zero when using a cursor.
-The timestamp/id boundary handles ties and avoids page shifts from newer postings.
-Each page rechecks wallet ownership. A cursor is a seek position, not a snapshot
-or a credential. See [measured query plans](docs/statement-perf.md).
+**Caption:** Register nabil_receiver as the payment recipient.
 
-For a date-range overview, use
-`GET /wallets/4/statement/summary?from_date=2026-01-01&to_date=2026-12-31`.
-It returns opening balance, gross credits/debits, closing balance and transfer
-count in integer paise, from the ledger in one read-only Repeatable Read snapshot.
-Dates are inclusive UTC entry dates. Holds contribute nothing; reversals appear
-as new entries. The summary rechecks ownership and does not use cached balances.
+```cmd
+curl.exe -i -X POST "http://localhost:8000/users" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000002" -H "Content-Type: application/json" --data "{\"name\":\"nabil_receiver\",\"email\":\"baigny+100@gmail.com\",\"phone\":\"+919800002402\"}"
+```
 
-If a Windows Python runner cannot discover the Compose plugin, set
-`WALLET_COMPOSE_BIN` to the installed `docker-compose.exe` path. This override is
-supported by benchmark, Postman and network runners; ordinary Docker commands
-and Linux CI continue to use `docker compose`.
+Blur the response's `token` field. Enter the receiver's numeric `id`:
 
+```cmd
+set /p "RECEIVER_ID=Enter receiver user id: "
+```
 
-## Assumptions and next steps
+### 9. Create the sender wallet
 
-Top-ups and withdrawals simulate external settlement; no bank or payment gateway
-is connected. KYC status is stored without a production KYC integration. Top-ups
-and fees require an admin; fees are explicit transfers rather than an automatic
-withdrawal surcharge. Reversals are full and must still respect available funds.
-Statement dates use inclusive UTC days; received totals include posted credits,
-and counts deduplicate transfers touching more than one of the user's wallets.
-Held transfers reserve no money, so release rechecks funds. Default fraud
-thresholds are documented in [fraud policies](docs/fraud.md), since the supplied
-brief's rule table is blank.
+**Caption:** Create an INR wallet owned by the sender.
 
-Stored balances make reads and funds checks cheap but add writes and contention;
-reconciliation independently verifies them. Explicit locks keep the money path
-readable; a busy wallet and shared system accounts still serialize. Provider
-requests use a shared budget, but inference currently spans a database transaction.
-These trade-offs do not establish production throughput.
+```cmd
+curl.exe -i -X POST "http://localhost:8000/users/%SENDER_ID%/wallets" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000003" -H "Content-Type: application/json" --data "{\"name\":\"Main\"}"
+set /p "SENDER_WALLET=Enter sender wallet id: "
+```
 
-The next improvements are a bounded connection pool, model jobs that call the
-provider outside database transactions with recoverable leases, and metrics for
-lock waits, request latency and reconciliation freshness. Production deployment
-would additionally need managed secrets, HTTPS and verified backup/restore.
-Partitioning and cross-shard settlement need a separate measured design. The
-optional 24-hour idempotency purge is disabled to preserve replay protection.
+Enter the wallet response's `id`, not its `user_id`. IDs vary between databases;
+the guide does not assume a particular user or wallet number.
 
-The [brief checklist](Plan.md#brief-verification) maps each requirement to evidence
-and records the missing source tables, schema-first chronology qualification and
-the demo video excluded at the user's request.
+### 10. Create the receiver wallet
+
+**Caption:** Create an INR wallet owned by the receiver.
+
+```cmd
+curl.exe -i -X POST "http://localhost:8000/users/%RECEIVER_ID%/wallets" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000004" -H "Content-Type: application/json" --data "{\"name\":\"Main\"}"
+set /p "RECEIVER_WALLET=Enter receiver wallet id: "
+```
+
+### 11. Inspect and prepare the amount rule
+
+**Caption:** Show the amount, velocity and daily-total fraud rules.
+
+```cmd
+curl.exe -sS "http://localhost:8000/admin/risk-rules" -H "Authorization: Bearer %ADMIN_TOKEN%"
+set /p "AMOUNT_RULE_ID=Enter the id of the amount rule: "
+```
+
+Choose the item with `"rule_type":"amount"`. The default amount threshold is
+100000 paise. Set it to that value before funding; earlier demonstrations may
+have lowered it. This guide restores that default after the held-transfer demo.
+
+```cmd
+curl.exe -i -X POST "http://localhost:8000/admin/risk-rules/%AMOUNT_RULE_ID%" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000005" -H "Content-Type: application/json" --data "{\"threshold\":100000,\"window_seconds\":null,\"action\":\"hold\",\"enabled\":true}"
+```
+
+### 12. Fund the sender
+
+**Caption:** Top up the sender wallet with Rs 250, stored as 25,000 paise.
+
+```cmd
+curl.exe -i -X POST "http://localhost:8000/transfers" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000006" -H "Content-Type: application/json" --data "{\"type\":\"top_up\",\"destination_account_id\":%SENDER_WALLET%,\"amount\":25000}"
+curl.exe -sS "http://localhost:8000/wallets/%SENDER_WALLET%/balance" -H "Authorization: Bearer %ADMIN_TOKEN%"
+```
+
+Expect `posted` and a balance of `25000` for a new empty wallet.
+
+### 13. Send a peer payment
+
+**Caption:** Transfer Rs 10 atomically from the sender to the receiver.
+
+```cmd
+curl.exe -i -X POST "http://localhost:8000/transfers" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000007" -H "Content-Type: application/json" --data "{\"type\":\"peer\",\"source_account_id\":%SENDER_WALLET%,\"destination_account_id\":%RECEIVER_WALLET%,\"amount\":1000}"
+```
+
+Expect `posted`. Note the returned transfer `id` for comparison with the retry.
+
+### 14. Retry the identical payment
+
+**Caption:** Retry the same request without moving money a second time.
+
+```cmd
+curl.exe -i -X POST "http://localhost:8000/transfers" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000007" -H "Content-Type: application/json" --data "{\"type\":\"peer\",\"source_account_id\":%SENDER_WALLET%,\"destination_account_id\":%RECEIVER_WALLET%,\"amount\":1000}"
+```
+
+Show the same transfer ID and `idempotent-replay: true`.
+
+### 15. Verify both balances
+
+**Caption:** Confirm the sender has Rs 240 and the receiver has Rs 10.
+
+```cmd
+curl.exe -sS "http://localhost:8000/wallets/%SENDER_WALLET%/balance" -H "Authorization: Bearer %ADMIN_TOKEN%"
+curl.exe -sS "http://localhost:8000/wallets/%RECEIVER_WALLET%/balance" -H "Authorization: Bearer %ADMIN_TOKEN%"
+```
+
+Expected balances are `24000` and `1000` paise for the new wallets above.
+
+### 16. Trigger fraud review
+
+**Caption:** Lower the threshold to Rs 5 and submit a separate Rs 10 payment.
+
+```cmd
+curl.exe -i -X POST "http://localhost:8000/admin/risk-rules/%AMOUNT_RULE_ID%" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000008" -H "Content-Type: application/json" --data "{\"threshold\":500,\"window_seconds\":null,\"action\":\"hold\",\"enabled\":true}"
+curl.exe -i -X POST "http://localhost:8000/transfers" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000009" -H "Content-Type: application/json" --data "{\"type\":\"peer\",\"source_account_id\":%SENDER_WALLET%,\"destination_account_id\":%RECEIVER_WALLET%,\"amount\":1000}"
+```
+
+Expect `"status":"held"`. This is a new transfer with a new key.
+
+### 17. Verify held money has not moved
+
+**Caption:** The held transfer creates no ledger entries and leaves balances unchanged.
+
+```cmd
+curl.exe -sS "http://localhost:8000/wallets/%SENDER_WALLET%/balance" -H "Authorization: Bearer %ADMIN_TOKEN%"
+curl.exe -sS "http://localhost:8000/wallets/%RECEIVER_WALLET%/balance" -H "Authorization: Bearer %ADMIN_TOKEN%"
+```
+
+Expected balances remain `24000` and `1000` paise.
+
+### 18. Run reconciliation
+
+**Caption:** Check the ledger and cached balances for inconsistencies.
+
+```cmd
+docker compose exec -T api python -m wallet.reconciliation
+```
+
+This checks the whole database and saves a report without repairing money
+records. Exit codes: `0` passed, `2` integrity problems, `3` check error,
+`4` another run is busy. See [the reconciliation guide](docs/reconciliation.md)
+for the checks and the worker's nightly schedule.
+
+### 19. Ask a statement question
+
+**Caption:** Answer a statement question with supporting posted transfer IDs.
+
+For a real model demonstration, configure the ignored local `.env` using
+[the hosted-model guide](docs/live-llm.md) before recording, then recreate API
+and worker. Keep the API key and the contents of `.env` off screen. The default
+mock is an offline test adapter; do not present its response as a live model call.
+
+```cmd
+curl.exe -i -X POST "http://localhost:8000/users/%SENDER_ID%/statement/ask" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000010" -H "Content-Type: application/json" --data "{\"question\":\"How many transfers from 2026-01-01 to 2026-12-31?\"}"
+```
+
+For new demo users and payments within that date range, expect `value: 2`:
+the posted top-up and peer payment. The retry adds no transfer and the held
+payment is excluded. Adjust the date range for recordings in another year.
+The model supplies validated intent; application-owned SQL computes the answer.
+Provider failures return an explicit error rather than a fabricated answer.
+
+### 20. Restore the default fraud threshold
+
+**Caption:** Restore the amount rule to Rs 1,000 after the demonstration.
+
+```cmd
+curl.exe -i -X POST "http://localhost:8000/admin/risk-rules/%AMOUNT_RULE_ID%" -H "Authorization: Bearer %ADMIN_TOKEN%" -H "Idempotency-Key: %DEMO_RUN%-4000-8000-000000000011" -H "Content-Type: application/json" --data "{\"threshold\":100000,\"window_seconds\":null,\"action\":\"hold\",\"enabled\":true}"
+```
+
+This does not release the held transfer; it remains awaiting admin review.
+Review endpoints and their balance rechecks are documented in
+[fraud policies](docs/fraud.md).
+
+### 21. Verify the required seed dataset
+
+**Caption:** Verify 1,000 users, 2,000 wallets and 100,000 transfers without changing demo data.
+
+```cmd
+docker compose run --rm migrate python -m scripts.verify_seed
+```
+
+The verifier applies migrations and loads the full dataset in a disposable
+schema, then removes that schema. The live application's users and wallets are
+untouched. For loading an empty application database instead, see
+[the seed guide](docs/seed.md).
+
+### 22. Stop the project
+
+**Caption:** Stop the services while preserving the database for the next session.
+
+```cmd
+docker compose down
+```
+
+Do not add `-v` when you want to preserve database data. Close the demo CMD
+window afterward to clear its token variable.
+
+## Trade-offs and next improvements
+
+Top-ups and withdrawals simulate external settlement; KYC has no production
+integration. Fees are explicit admin transfers and reversals are full. Held
+payments reserve no money, so release rechecks funds. Statement dates use
+inclusive UTC days. See [fraud policies](docs/fraud.md) for the default rules.
+
+Cached balances make reads cheap but add writes and contention; reconciliation
+verifies them independently. Ordered locks keep posting explicit, while busy
+wallets and shared system accounts still serialize. Hosted model calls share
+database-backed quotas, but currently span a database transaction. These choices
+do not establish production throughput.
+
+Next improvements are a bounded connection pool, recoverable model jobs that
+call providers outside database transactions, and metrics for lock waits,
+latency and reconciliation freshness. Production deployment also needs managed
+secrets, HTTPS and verified backup/restore. Partitioning requires a measured
+design. Optional idempotency expiry remains disabled to preserve replay history.
